@@ -141,7 +141,11 @@ async function process(file:Blob,params:ProcessingParams,format:ExportFormat):Pr
   headers:{Authorization:'Bearer '+token.value},cache:'no-store',
  });
  if(!response.ok)throw new Error('处理成功，但下载暂不可用；请在 30 分钟内重新尝试。');
- return response.blob();
+ const result=await response.blob();
+ // A later explicit export is a new operation; retain the job ID in account history
+ // for free re-downloads rather than indefinitely reusing an expired idempotency key.
+ jobKeys.delete(fingerprintHex);
+ return result;
 }
 export function useCommerce() {
  return {
