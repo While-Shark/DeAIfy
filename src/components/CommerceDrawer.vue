@@ -15,6 +15,7 @@ const formError=ref(''),message=ref('');
 const checkoutLink=ref(''),qrLink=ref('');
 const recentOrders=ref<any[]>([]);
 const recentLedger=ref<any[]>([]);
+const recentJobs=ref<any[]>([]);
 const submitting=ref(false);
 watch(()=>props.open,value=>{if(value)void billing.initialize();});
 async function action(task:()=>Promise<unknown>,after?:()=>void) {
@@ -40,11 +41,13 @@ function purchase(planId:string){void action(async()=>{
 function viewOrders(){void action(async()=>{
  recentOrders.value=await billing.orders();
  recentLedger.value=await billing.ledger();
+ recentJobs.value=await billing.jobs();
  section.value='orders';
 });}
 function afterPayment(){void action(async()=>{
  await billing.refresh();
  recentOrders.value=await billing.orders();
+ recentJobs.value=await billing.jobs();
  message.value='已刷新订单状态；付款完成后可能需要等待回调。';
 });}
 </script>
@@ -123,6 +126,12 @@ function afterPayment(){void action(async()=>{
             <button type="button" class="commerce-link" @click="afterPayment">刷新到账状态</button>
             <div v-for="order in recentOrders" :key="order.id" class="commerce-history">
               <strong>{{ order.title_snapshot }}</strong><span>¥{{ (order.price_fen/100).toFixed(2) }} · {{ order.state }}</span>
+            </div>
+            <h3>最近导出（30 分钟内可再次下载，不重复扣费）</h3>
+            <div v-for="job in recentJobs" :key="job.id" class="commerce-history">
+              <strong>{{ job.filename }}</strong>
+              <button type="button" class="commerce-link"
+                @click="void action(()=>billing.downloadJob(job.id,job.filename))">重新下载</button>
             </div>
             <h3>积分记录</h3>
             <div v-for="entry in recentLedger" :key="entry.reference_id+'-'+entry.kind" class="commerce-history">
