@@ -30,7 +30,7 @@ function positiveInt(name: string, fallback: number): number {
 export function readConfig(): Config {
   const frontendOrigin = nonempty('FRONTEND_ORIGIN');
   const publicOrigin = nonempty('API_PUBLIC_ORIGIN');
-  for (const [name, origin] of [['FRONTEND_ORIGIN', frontendOrigin], ['API_PUBLIC_ORIGIN', publicOrigin]]) {
+  for (const [name, origin] of [['FRONTEND_ORIGIN', frontendOrigin], ['API_PUBLIC_ORIGIN', publicOrigin]] as const) {
     const u = new URL(origin);
     if (u.origin !== origin || (process.env.NODE_ENV === 'production' && u.protocol !== 'https:')) {
       throw new Error(name + ' must be an origin with https:// in production');
