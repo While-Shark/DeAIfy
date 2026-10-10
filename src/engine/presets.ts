@@ -17,6 +17,10 @@ export const PRESETS: readonly Preset[] = [
     id: 'documentary', title: '纪实风格', subtitle: '中性色彩 · 保留细节',
     params: { strength: 77, grain: 26, warmth: -5, saturation: -17, contrast: 5, softness: 3, texture: 18 },
   },
+  {
+    id: 'softlight', title: '清透日常', subtitle: '柔和光影 · 自然通透',
+    params: { strength: 72, grain: 16, warmth: 5, saturation: -3, contrast: -12, softness: 13, texture: 6 },
+  },
 ];
 
 export function getPreset(id: PresetId): Preset {

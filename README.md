@@ -11,9 +11,15 @@ DeAIfy lets you upload a JPG/PNG/WebP image, receive a **preliminary 0–100 rea
 - **Real browser AI inference:** Transformers.js + 8-bit ONNX ViT, run in a Web Worker. No fake/demo scores.
 - **60-point threshold:** model-derived numeric result and honest failure states.
 - **Separate C2PA check:** locally inspect Content Credentials. No credentials ≠ genuine photography; a signed claim and a visual score are separate signals.
-- **4 presets:** Natural, Portrait, Film, Documentary; adjust grain, softness, texture, warmth, contrast, saturation, and blend strength.
-- **Compare & export:** drag the before/after divider; export PNG, JPEG, or WebP at the original resolution.
+- **5 one-click presets:** Natural, Portrait, Film, Documentary, Soft Light. Choose a preset to instantly refresh the preview, then **manually run a preview score** from the presets panel; changing settings never automatically triggers scoring. Fine-tune grain, softness, texture, warmth, contrast, saturation, and blend strength.
+- **Compare & export:** drag the before/after divider; review original-versus-final score and C2PA before confirming full-resolution PNG, JPEG, or WebP export. The final file is scored once and downloaded unchanged.
 - **No backend or database:** works as a static site. The ML model and C2PA WASM are downloaded by the browser when needed.
+
+## Presets & on-demand preview scoring (v0.1.2)
+
+Five built-in styles are applied with one click: **Natural**, **Portrait**, **Film**, **Documentary**, and **Soft Light**. Applying a preset or moving a slider changes the preview only; it does **not** start a second model inference. When the preview is ready, choose **检测当前处理效果** in the presets panel to manually rescore it. Any later edit clears the previous preview score so it cannot be mistaken for the new result. The full-resolution export review remains automatic **only after** clicking **检测并导出**.
+
+The favicon is available at `/favicon.svg` and used in browser tabs.
 
 ## Export-time verification (v0.1.1)
 
@@ -81,7 +87,7 @@ Vue 3 · TypeScript · Vite · Transformers.js · ONNX Runtime Web · Web Worker
 
 DeAIfy 是一个**图片本地处理**的轻量化网页工作台：上传图片后自动运行真实的 ONNX 模型，给出 0–100 分初筛结果。**低于 60 分显示“疑似 AI 生成”**，60 分及以上仅表示通过该模型的初筛，不代表一定是真实照片。
 
-支持自然摄影、真实人像、胶片、纪实四种预设，前后对比，以及原始分辨率导出。图片不会被上传到项目后端，但首次运行需要从 Hugging Face 下载模型。额外检查 C2PA 凭证，与视觉评分独立；暂不支持 SynthID 检测。
+支持自然摄影、真实人像、胶片、纪实、清透日常 **5 套一键预设**。方案应用后可手动触发预览图评分，不会自动评分；导出前会自动复检实际高清文件并展示前后分数与 C2PA 差异，确认后下载同一份文件。支持前后对比和原始分辨率导出。图片不会被上传到项目后端，但首次运行需要从 Hugging Face 下载模型。额外检查 C2PA 凭证，与视觉评分独立；暂不支持 SynthID 检测。
 
 ```bash
 npm install && npm run dev

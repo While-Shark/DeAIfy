@@ -8,7 +8,7 @@ export interface ProcessingParams {
   texture: number;
 }
 
-export type PresetId = 'natural' | 'portrait' | 'film' | 'documentary';
+export type PresetId = 'natural' | 'portrait' | 'film' | 'documentary' | 'softlight';
 export type ExportFormat = 'image/png' | 'image/jpeg' | 'image/webp';
 
 export interface Preset {
