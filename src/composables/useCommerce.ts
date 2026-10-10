@@ -140,7 +140,10 @@ async function process(file:Blob,params:ProcessingParams,format:ExportFormat):Pr
  const response=await fetch(apiBase+created.downloadUrl,{
   headers:{Authorization:'Bearer '+token.value},cache:'no-store',
  });
- if(!response.ok)throw new Error('处理成功，但下载暂不可用；请在 30 分钟内重新尝试。');
+ if(!response.ok) {
+  if(response.status===404||response.status===410)jobKeys.delete(fingerprintHex);
+  throw new Error('处理成功但当前文件已过期或下载失败。请查看账户历史；过期重做可能重新计次。');
+ }
  const result=await response.blob();
  // A later explicit export is a new operation; retain the job ID in account history
  // for free re-downloads rather than indefinitely reusing an expired idempotency key.
