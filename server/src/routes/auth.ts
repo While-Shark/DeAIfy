@@ -107,6 +107,14 @@ export function registerAuth(app:FastifyInstance,db:Database,config:Config) {
   return {entries:await rows(db,
    'SELECT delta,kind,reference_id,created_at FROM credit_ledger WHERE user_id=? ORDER BY id DESC LIMIT 100',[user.id])};
  });
+ app.get('/api/account/jobs',async(req,reply)=>{
+  const user=await requireIdentity(db,req,reply);
+  if(!user)return;
+  return {jobs:await rows(db,
+   "SELECT id,filename,source,expires_at,created_at FROM processing_jobs "+
+   "WHERE user_id=? AND state='complete' AND expires_at>UTC_TIMESTAMP(3) ORDER BY created_at DESC LIMIT 20",
+   [user.id])};
+ });
  app.get('/api/account/orders',async(req,reply)=>{
   const user=await requireIdentity(db,req,reply);
   if(!user)return;
