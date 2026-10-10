@@ -24,10 +24,10 @@ export async function tx<T>(db: Database, callback: (conn: Connection) => Promis
   } finally { conn.release(); }
 }
 export async function rows<T extends Row = Row>(conn: Database | Connection, sql: string, values: unknown[] = []): Promise<T[]> {
-  const [result] = await conn.execute<T[]>(sql, values);
+  const [result] = await conn.execute<T[]>(sql, values as any[]);
   return result;
 }
 export async function execute(conn: Database | Connection, sql: string, values: unknown[] = []): Promise<ResultSetHeader> {
-  const [result] = await conn.execute<ResultSetHeader>(sql, values);
+  const [result] = await conn.execute<ResultSetHeader>(sql, values as any[]);
   return result;
 }
