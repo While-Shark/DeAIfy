@@ -31,8 +31,8 @@ describe('four-axis photographic diagnostics', () => {
     expect(result.index).toBeLessThan(80);
   });
   it('detects over-saturation distinctly from exposure', () => {
-    const intense = analyzeNaturalness(pixels(24, 24, (x, y) => [100 + x, 0, 0]), 24, 24);
-    const neutral = analyzeNaturalness(pixels(24, 24, (x, y) => [100 + x, 100 + x, 100 + x]), 24, 24);
+    const intense = analyzeNaturalness(pixels(24, 24, (x) => [100 + x, 0, 0]), 24, 24);
+    const neutral = analyzeNaturalness(pixels(24, 24, (x) => [100 + x, 100 + x, 100 + x]), 24, 24);
     expect(intense.dimensions.color).toBeLessThan(neutral.dimensions.color);
   });
   it('rejects transparent-only images and invalid dimensions without invented scores', () => {
