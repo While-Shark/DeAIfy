@@ -1,5 +1,5 @@
 import { onScopeDispose } from 'vue';
-import type { ExportFormat, ProcessingParams, ProcessorWorkerRequest, ProcessorWorkerResponse, BrushStroke } from '../types/editor';
+import type { ExportFormat, ProcessingParams, ProcessorWorkerRequest, ProcessorWorkerResponse } from '../types/editor';
 
 interface PendingJob {
   resolve: (blob: Blob) => void;
@@ -31,11 +31,11 @@ export function useProcessor() {
     return worker;
   }
 
-  function render(file: Blob, params: ProcessingParams, mime: ExportFormat, maxSide?: number, strokes: readonly BrushStroke[] = []): Promise<Blob> {
+  function render(file: Blob, params: ProcessingParams, mime: ExportFormat, maxSide?: number): Promise<Blob> {
     const id = ++nextId;
     return new Promise((resolve, reject) => {
       pending.set(id, { resolve, reject });
-      const event: ProcessorWorkerRequest = { id, file, params, maxSide, mime, quality: 0.94, strokes: [...strokes] };
+      const event: ProcessorWorkerRequest = { id, file, params, maxSide, mime, quality: 0.94 };
       try { getWorker().postMessage(event); }
       catch (error) { pending.delete(id); reject(error); }
     });
@@ -47,6 +47,5 @@ export function useProcessor() {
     worker?.terminate();
     worker = null;
   });
-
   return { render };
 }

@@ -1,26 +1,28 @@
 import { onScopeDispose, ref, shallowRef } from 'vue';
 import { createExportReport, exportFilename } from '../engine/exportReview';
 import { inspectProvenance } from '../services/provenance';
-import type { BrushStroke, ExportFormat, ExportReviewReport, ExportReviewStage, ProcessingParams, ProvenanceResult } from '../types/editor';
+import type { ExportFormat, ExportReviewReport, ExportReviewStage, NaturalnessMetrics,
+  ProcessingParams, ProvenanceResult } from '../types/editor';
 
 interface ExportInput {
   file: File;
   params: ProcessingParams;
-  strokes?: BrushStroke[];
   format: ExportFormat;
   sourceScore: number | null;
+  sourceQuality?: NaturalnessMetrics | null;
   sourceProvenance: ProvenanceResult;
 }
 
 type Assess = (file: Blob) => Promise<number>;
-type Render = (file: Blob, params: ProcessingParams, mime: ExportFormat, maxSide?: number, strokes?: readonly BrushStroke[]) => Promise<Blob>;
+type Render = (file: Blob, params: ProcessingParams, mime: ExportFormat, maxSide?: number) => Promise<Blob>;
+type Analyze = (file: Blob) => Promise<NaturalnessMetrics>;
 
 function errorText(error: unknown): string {
-  return error instanceof Error ? error.message : 'Unknown model error';
+  return error instanceof Error ? error.message : 'Analysis unavailable';
 }
 
-/** The exact blob scored for the report is downloaded after confirmation. */
-export function useExportReview(assess: Assess, render: Render) {
+/** Score and analyze the exact full-resolution Blob later offered for download. */
+export function useExportReview(assess: Assess, render: Render, analyze: Analyze) {
   const reviewOpen = ref(false);
   const reviewStage = ref<ExportReviewStage>('idle');
   const reviewReport = shallowRef<ExportReviewReport | null>(null);
@@ -51,32 +53,41 @@ export function useExportReview(assess: Assess, render: Render) {
     reviewStage.value = 'rendering';
 
     try {
-      // Render only once at full resolution, using the user's selected export format.
-      const output = await render(input.file, { ...input.params }, input.format, undefined, input.strokes ?? []);
+      const output = await render(input.file, { ...input.params }, input.format);
       if (id !== sequence) return;
       preparedBlob = output;
       reviewStage.value = 'assessing';
-
       const filename = exportFilename(input.file.name, input.format);
       const exportedFile = new File([output], filename, { type: output.type });
-      // Scoring errors are recorded individually so no fabricated scores appear.
-      const [original, exported, originalProvenance, exportedProvenance] = await Promise.all([
+
+      // Independent failure outcomes prevent arbitrary defaults and preserve export availability.
+      const [original, exported, sourceQuality, finalQuality, sourceProvenance, finalProvenance] = await Promise.all([
         input.sourceScore !== null
-          ? Promise.resolve({ score: input.sourceScore, error: '' })
-          : assess(input.file).then(score => ({ score, error: '' })).catch(error => ({ score: null, error: errorText(error) })),
-        assess(exportedFile).then(score => ({ score, error: '' })).catch(error => ({ score: null, error: errorText(error) })),
+          ? Promise.resolve({ value: input.sourceScore, error: '' })
+          : assess(input.file).then(value => ({ value, error: '' }))
+            .catch(error => ({ value: null, error: errorText(error) })),
+        assess(exportedFile).then(value => ({ value, error: '' }))
+          .catch(error => ({ value: null, error: errorText(error) })),
+        input.sourceQuality
+          ? Promise.resolve({ value: input.sourceQuality, error: '' })
+          : analyze(input.file).then(value => ({ value, error: '' }))
+            .catch(error => ({ value: null, error: errorText(error) })),
+        analyze(exportedFile).then(value => ({ value, error: '' }))
+          .catch(error => ({ value: null, error: errorText(error) })),
         input.sourceProvenance.status !== 'pending'
-          ? Promise.resolve(input.sourceProvenance)
-          : inspectProvenance(input.file),
+          ? Promise.resolve(input.sourceProvenance) : inspectProvenance(input.file),
         inspectProvenance(exportedFile),
       ]);
       if (id !== sequence) return;
-
       reviewReport.value = createExportReport({
-        originalScore: original.score,
-        exportedScore: exported.score,
-        originalProvenance,
-        exportedProvenance,
+        originalScore: original.value,
+        exportedScore: exported.value,
+        originalQuality: sourceQuality.value,
+        exportedQuality: finalQuality.value,
+        originalQualityError: sourceQuality.error,
+        exportedQualityError: finalQuality.error,
+        originalProvenance: sourceProvenance,
+        exportedProvenance: finalProvenance,
         originalError: original.error,
         exportedError: exported.error,
         filename,
@@ -94,10 +105,9 @@ export function useExportReview(assess: Assess, render: Render) {
 
   function startExportReview(input: ExportInput): void {
     if (reviewOpen.value) return;
-    returnFocus = typeof HTMLElement !== 'undefined' && document.activeElement instanceof HTMLElement
-      ? document.activeElement : null;
-    // Freeze parameters and source file while the confirmation dialog is open.
-    lastInput = { ...input, params: { ...input.params }, strokes: [...(input.strokes ?? [])] };
+    returnFocus = typeof HTMLElement !== 'undefined'
+      && document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    lastInput = { ...input, params: { ...input.params } };
     void performReview(lastInput);
   }
 
@@ -122,7 +132,6 @@ export function useExportReview(assess: Assess, render: Render) {
   }
 
   onScopeDispose(cancelReview);
-
   return {
     reviewOpen, reviewStage, reviewReport, reviewError,
     startExportReview, retryExportReview, confirmExportReview, cancelReview,

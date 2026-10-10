@@ -1,7 +1,7 @@
 import { effectScope } from 'vue';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useExportReview } from './useExportReview';
-import type { ExportFormat, ProcessingParams } from '../types/editor';
+import type { ExportFormat, NaturalnessMetrics, ProcessingParams } from '../types/editor';
 
 vi.mock('../services/provenance', () => ({
   inspectProvenance: vi.fn(async (file: File) => ({
@@ -13,18 +13,26 @@ vi.mock('../services/provenance', () => ({
 const params: ProcessingParams = {
   strength: 30, grain: 12, warmth: 2, saturation: 1, contrast: 0, softness: 0, texture: 0,
 };
-const originalProvenance = { status: 'ai-declared', message: 'Source AI declared' } as const;
-const input = () => ({ file: new File(['source'], 'source.jpg', { type: 'image/jpeg' }),
-  params: { ...params }, format: 'image/png' as ExportFormat, sourceScore: 42, sourceProvenance: originalProvenance });
+const fakeQuality: NaturalnessMetrics = {
+  index: 84, clippedPercent: 1, averageSaturation: 25, textureIndex: 30, edgeRatio: 9,
+  dimensions: { exposure: 99, color: 100, texture: 90, edges: 95 }, notes: ['Sample'],
+};
+const sourceProvenance = { status: 'ai-declared', message: 'Source AI declared' } as const;
+const input = () => ({
+  file: new File(['source'], 'source.jpg', { type: 'image/jpeg' }),
+  params: { ...params }, format: 'image/png' as ExportFormat,
+  sourceScore: 42, sourceProvenance,
+});
 const settled = () => new Promise<void>(resolve => setTimeout(resolve, 0));
 
 afterEach(() => vi.unstubAllGlobals());
 
 describe('export review gate', () => {
-  it('scores the exact full-resolution blob that is later downloaded', async () => {
+  it('scores and analyzes the exact final blob later downloaded without re-encoding', async () => {
     const blob = new Blob(['final-image'], { type: 'image/png' });
     const render = vi.fn(async () => blob);
-    const assess = vi.fn(async (_file: Blob) => 71);
+    const assess = vi.fn(async (_file: Blob) => 71.32);
+    const analyze = vi.fn(async (_file: Blob) => fakeQuality);
     const href = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:test');
     const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
     let filename = '';
@@ -34,15 +42,18 @@ describe('export review gate', () => {
       body: { append: () => {} },
     });
     const scope = effectScope();
-    const gate = scope.run(() => useExportReview(assess, render))!;
+    const gate = scope.run(() => useExportReview(assess, render, analyze))!;
     gate.startExportReview(input());
     await settled();
     expect(gate.reviewStage.value).toBe('ready');
-    expect(render).toHaveBeenCalledWith(expect.any(File), params, 'image/png', undefined, []);
+    expect(render).toHaveBeenCalledWith(expect.any(File), params, 'image/png');
     expect(assess).toHaveBeenCalledTimes(1);
+    expect(analyze).toHaveBeenCalledTimes(2);
     expect(assess.mock.calls[0][0].size).toBe(blob.size);
-    expect(gate.reviewReport.value?.delta).toBe(29);
-    expect(gate.reviewReport.value?.exportedProvenance.status).toBe('none');
+    expect(analyze.mock.calls[1][0].size).toBe(blob.size);
+    expect(gate.reviewReport.value?.delta).toBe(29.32);
+    expect(gate.reviewReport.value?.originalQuality?.index).toBe(84);
+    expect(gate.reviewReport.value?.exportedQuality?.dimensions.texture).toBe(90);
     gate.confirmExportReview();
     expect(href).toHaveBeenCalledWith(blob);
     expect(filename).toBe('source-deaify.png');
@@ -52,36 +63,40 @@ describe('export review gate', () => {
     revoke.mockRestore();
   });
 
-  it('discards an obsolete render after the review is closed', async () => {
+  it('discards an obsolete result after cancellation', async () => {
     let finish!: (blob: Blob) => void;
     const render = () => new Promise<Blob>(resolve => { finish = resolve; });
-    const assess = vi.fn(async () => 79);
-    const scope = effectScope();
-    const gate = scope.run(() => useExportReview(assess, render))!;
     vi.stubGlobal('document', { activeElement: null });
+    const assess = vi.fn(async () => 79);
+    const analyze = vi.fn(async () => fakeQuality);
+    const scope = effectScope();
+    const gate = scope.run(() => useExportReview(assess, render, analyze))!;
     gate.startExportReview(input());
-    expect(gate.reviewStage.value).toBe('rendering');
     gate.cancelReview();
     finish(new Blob(['stale'], { type: 'image/png' }));
     await settled();
     expect(gate.reviewStage.value).toBe('idle');
-    expect(gate.reviewOpen.value).toBe(false);
     expect(gate.reviewReport.value).toBeNull();
     expect(assess).not.toHaveBeenCalled();
+    expect(analyze).not.toHaveBeenCalled();
     scope.stop();
   });
 
-  it('records a scoring failure instead of fabricating a score', async () => {
+  it('shows independent failures instead of fabricated score values', async () => {
     vi.stubGlobal('document', { activeElement: null });
     const scope = effectScope();
-    const gate = scope.run(() => useExportReview(async () => { throw new Error('Model offline'); },
-      async () => new Blob(['ready'], { type: 'image/png' })))!;
+    const gate = scope.run(() => useExportReview(
+      async () => { throw new Error('Model offline'); },
+      async () => new Blob(['ready'], { type: 'image/png' }),
+      async () => { throw new Error('Canvas unavailable'); },
+    ))!;
     gate.startExportReview(input());
     await settled();
     expect(gate.reviewStage.value).toBe('ready');
     expect(gate.reviewReport.value?.exportedScore).toBeNull();
     expect(gate.reviewReport.value?.delta).toBeNull();
-    expect(gate.reviewReport.value?.exportedError).toBe('Model offline');
+    expect(gate.reviewReport.value?.exportedQuality).toBeNull();
+    expect(gate.reviewReport.value?.exportedQualityError).toContain('Canvas unavailable');
     scope.stop();
   });
 });

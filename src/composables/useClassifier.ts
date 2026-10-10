@@ -1,5 +1,5 @@
 import { onScopeDispose } from 'vue';
-import type { ClassifierWorkerRequest, ClassifierWorkerResponse, DetectorModel } from '../types/editor';
+import type { ClassifierWorkerRequest, ClassifierWorkerResponse } from '../types/editor';
 
 interface Job {
   resolve: (score: number) => void;
@@ -36,18 +36,14 @@ export function useClassifier() {
     return worker;
   }
 
-  function assessModel(file: Blob, model: DetectorModel = 'primary', precise = false, onProgress?: Job['onProgress']): Promise<number> {
+  function assess(file: Blob, onProgress?: Job['onProgress']): Promise<number> {
     const id = ++nextId;
     return new Promise((resolve, reject) => {
       pending.set(id, { resolve, reject, onProgress });
-      const event: ClassifierWorkerRequest = { type: 'assess', id, file, model, precise };
+      const event: ClassifierWorkerRequest = { type: 'assess', id, file };
       try { getWorker().postMessage(event); }
       catch (error) { pending.delete(id); reject(error); }
     });
-  }
-
-  function assess(file: Blob, onProgress?: Job['onProgress']): Promise<number> {
-    return assessModel(file, 'primary', false, onProgress);
   }
 
   onScopeDispose(() => {
@@ -56,6 +52,5 @@ export function useClassifier() {
     worker?.terminate();
     worker = null;
   });
-
-  return { assess, assessModel };
+  return { assess };
 }

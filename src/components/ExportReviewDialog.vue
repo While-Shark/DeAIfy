@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { AlertCircle, ArrowRight, CheckCircle2, Download, FileCheck2, LoaderCircle, RefreshCw, ShieldAlert, X } from 'lucide-vue-next';
 import { getScoreLabel, getVerdict } from '../engine/scoring';
+import QualityBreakdown from './QualityBreakdown.vue';
 import { reviewCopy as copy } from '../i18n/exportReview';
 import type { ExportReviewReport, ExportReviewStage, ProvenanceResult } from '../types/editor';
 
@@ -9,12 +10,12 @@ const props = defineProps<{
   stage: ExportReviewStage;
   report: ExportReviewReport | null;
   error: string;
-  precise?: boolean;
 }>();
 const emit = defineEmits<{ close: []; retry: []; confirm: [] }>();
 const dialog = ref<HTMLElement | null>(null);
 const incomplete = computed(() => !!props.report && (
   props.report.originalScore === null || props.report.exportedScore === null ||
+  props.report.originalQuality === null || props.report.exportedQuality === null ||
   props.report.originalProvenance.status === 'unavailable' ||
   props.report.exportedProvenance.status === 'unavailable'
 ));
@@ -23,7 +24,7 @@ const credentialLost = computed(() => !!props.report &&
   props.report.exportedProvenance.status === 'none');
 
 function displayScore(score: number | null): string {
-  return score === null ? '--' : props.precise ? score.toFixed(2) : `${score}`;
+  return score === null ? '--' : score.toFixed(2);
 }
 function scoreClass(score: number | null): string {
   return score === null ? 'unknown' : getVerdict(score);
@@ -103,7 +104,7 @@ onMounted(() => dialog.value?.focus());
         <div class="review-delta" aria-live="polite">
           <span>{{ copy.scoreDelta }}</span>
           <strong v-if="report.delta !== null" :class="{ 'delta-positive': report.delta > 0, 'delta-negative': report.delta < 0 }">
-            {{ report.delta > 0 ? '+' : '' }}{{ precise ? report.delta.toFixed(2) : report.delta }} {{ copy.points }}
+            {{ report.delta > 0 ? '+' : '' }}{{ report.delta.toFixed(2) }} {{ copy.points }}
           </strong>
           <strong v-else>{{ copy.noDelta }}</strong>
         </div>
@@ -115,6 +116,23 @@ onMounted(() => dialog.value?.focus());
             <p>{{ copy.reportUnavailable }}</p>
           </div>
         </div>
+
+        <section class="review-quality" aria-labelledby="review-quality-title">
+          <div class="review-score-heading">
+            <strong id="review-quality-title">多维度画质评分</strong>
+            <span>本地图像诊断 · 非 AI 概率</span>
+          </div>
+          <div class="review-quality-indexes">
+            <span>原图指数：<strong>{{ report.originalQuality ? report.originalQuality.index.toFixed(1) : '—' }}</strong></span>
+            <span>导出指数：<strong>{{ report.exportedQuality ? report.exportedQuality.index.toFixed(1) : '—' }}</strong></span>
+          </div>
+          <QualityBreakdown :source="report.originalQuality" :processed="report.exportedQuality"
+            processed-label="导出图" />
+          <p v-if="report.originalQualityError || report.exportedQualityError" class="inline-error" role="status">
+            {{ report.originalQualityError || report.exportedQualityError }}
+          </p>
+          <p class="review-quality-note">曝光、色彩、纹理、边缘均为启发式观感指标，仅适合对同一张图的前后版本做参考比较。分数变高不代表非 AI 生成。</p>
+        </section>
         <section class="review-provenance" aria-labelledby="review-provenance-title">
           <h3 id="review-provenance-title"><ShieldAlert :size="17" /> {{ copy.provenanceTitle }}</h3>
           <div class="review-provenance-grid">
