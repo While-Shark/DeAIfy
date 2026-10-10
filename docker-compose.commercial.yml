@@ -18,17 +18,37 @@ services:
       timeout: 5s
       retries: 10
       start_period: 35s
-    security_opt: ["no-new-privileges:true"]
-    cap_drop: [ALL]
+    # Official MySQL entrypoint needs startup capabilities to set data-directory ownership.
+    # The database stays private with no published port.
 
   api:
     build:
       context: ./server
     restart: unless-stopped
-    env_file: .env.commercial
     environment:
       NODE_ENV: production
       PORT: "8080"
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:?Required}
+      API_PUBLIC_ORIGIN: ${API_PUBLIC_ORIGIN:?Required}
+      RESULT_ENCRYPTION_KEY_HEX: ${RESULT_ENCRYPTION_KEY_HEX:?Required}
+      PROCESSOR_SHARED_TOKEN: ${PROCESSOR_SHARED_TOKEN:?Required}
+      FREE_USES_PER_DAY: ${FREE_USES_PER_DAY:-5}
+      REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-false}
+      PAYMENTS_ENABLED: ${PAYMENTS_ENABLED:-false}
+      MERCHANT_APPROVED: ${MERCHANT_APPROVED:-false}
+      XUNHU_APPID: ${XUNHU_APPID:-}
+      XUNHU_SECRET: ${XUNHU_SECRET:-}
+      XUNHU_GATEWAY: ${XUNHU_GATEWAY:-https://api.xunhupay.com}
+      TURNSTILE_SECRET: ${TURNSTILE_SECRET:-}
+      OTP_SECRET: ${OTP_SECRET:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-deaify}
+      MYSQL_USER: ${MYSQL_USER:-deaify}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Required}
       MYSQL_HOST: mysql
       MYSQL_PORT: "3306"
       PROCESSOR_URL: http://processor:8081
