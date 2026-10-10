@@ -37,7 +37,7 @@ services:
       - "127.0.0.1:${API_BIND_PORT:-18088}:8080"
     volumes:
       - result_data:/data/results
-    networks: [database,processor_net]
+    networks: [database,processor_net,egress]
     depends_on:
       mysql: {condition: service_healthy}
       processor: {condition: service_started}
@@ -84,6 +84,7 @@ services:
 networks:
   database: {internal: true}
   processor_net: {internal: true}
+  egress: {}
 volumes:
   mysql_data: {}
   result_data: {}
