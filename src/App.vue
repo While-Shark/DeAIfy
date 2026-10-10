@@ -85,7 +85,7 @@ function updateParam(key: keyof ProcessingParams, value: number): void { params[
       </aside>
     </main>
     <Teleport to="body">
-      <ExportReviewDialog v-if="reviewOpen" :stage="reviewStage" :report="reviewReport" :error="reviewError"
+      <ExportReviewDialog v-if="reviewOpen" :stage="reviewStage" :report="reviewReport" :error="reviewError" :precise="mode === 'advanced'"
         @close="cancelReview" @retry="retryExportReview" @confirm="confirmExportReview" />
     </Teleport>
     <footer class="site-footer">

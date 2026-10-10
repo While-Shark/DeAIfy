@@ -15,12 +15,13 @@ const MAX_PIXELS = 30_000_000;
 
 export function useEditor() {
   const { assess, assessModel } = useClassifier();
+  const mode = ref<StudioMode>('basic');
   const { analyze } = useNaturalness();
   const advanced = useAdvancedAnalysis(assessModel, analyze);
   const evaluation = useEvaluation(assessModel);
   const { render } = useProcessor();
   const { reviewOpen, reviewStage, reviewReport, reviewError, startExportReview,
-    retryExportReview, confirmExportReview, cancelReview } = useExportReview(assess, render);
+    retryExportReview, confirmExportReview, cancelReview } = useExportReview((blob) => mode.value === 'advanced' ? assessModel(blob, 'primary', true) : assess(blob), render);
   const file = shallowRef<File | null>(null);
   const originalUrl = ref('');
   const previewUrl = ref('');
@@ -41,7 +42,6 @@ export function useEditor() {
   const previewError = ref('');
   const isPreviewing = ref(false);
   const exportFormat = ref<ExportFormat>('image/png');
-  const mode = ref<StudioMode>('basic');
   const brushEnabled = ref(false);
   const brushTool = ref<BrushTool>('lighten');
   const brushRadius = ref(0.065);
@@ -233,7 +233,7 @@ export function useEditor() {
       params: { ...params },
       strokes: mode.value === 'advanced' ? [...strokes.value] : [],
       format: exportFormat.value,
-      sourceScore: score.value,
+      sourceScore: mode.value === 'advanced' ? null : score.value,
       sourceProvenance: provenance.value,
     });
   }

@@ -9,6 +9,7 @@ const props = defineProps<{
   stage: ExportReviewStage;
   report: ExportReviewReport | null;
   error: string;
+  precise?: boolean;
 }>();
 const emit = defineEmits<{ close: []; retry: []; confirm: [] }>();
 const dialog = ref<HTMLElement | null>(null);
@@ -22,7 +23,7 @@ const credentialLost = computed(() => !!props.report &&
   props.report.exportedProvenance.status === 'none');
 
 function displayScore(score: number | null): string {
-  return score === null ? '--' : `${score}`;
+  return score === null ? '--' : props.precise ? score.toFixed(2) : `${score}`;
 }
 function scoreClass(score: number | null): string {
   return score === null ? 'unknown' : getVerdict(score);
@@ -102,7 +103,7 @@ onMounted(() => dialog.value?.focus());
         <div class="review-delta" aria-live="polite">
           <span>{{ copy.scoreDelta }}</span>
           <strong v-if="report.delta !== null" :class="{ 'delta-positive': report.delta > 0, 'delta-negative': report.delta < 0 }">
-            {{ report.delta > 0 ? '+' : '' }}{{ report.delta }} {{ copy.points }}
+            {{ report.delta > 0 ? '+' : '' }}{{ precise ? report.delta.toFixed(2) : report.delta }} {{ copy.points }}
           </strong>
           <strong v-else>{{ copy.noDelta }}</strong>
         </div>
