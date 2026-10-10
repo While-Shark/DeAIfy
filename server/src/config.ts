@@ -46,6 +46,11 @@ export function readConfig(): Config {
       !['api.xunhupay.com', 'api.dpweixin.com'].includes(host.hostname)) {
     throw new Error('XUNHU_GATEWAY must be an approved official HTTPS host');
   }
+  const processorOrigin=new URL(process.env.PROCESSOR_URL??'http://processor:8081');
+  if(processorOrigin.protocol!=='http:' || !['processor','localhost','127.0.0.1'].includes(processorOrigin.hostname) ||
+     processorOrigin.username || processorOrigin.password || processorOrigin.pathname!=='/') {
+    throw new Error('PROCESSOR_URL must remain an internal host');
+  }
   const paymentsEnabled = process.env.PAYMENTS_ENABLED === 'true';
   if (paymentsEnabled && (!process.env.XUNHU_APPID || !process.env.XUNHU_SECRET ||
       process.env.MERCHANT_APPROVED !== 'true')) {
