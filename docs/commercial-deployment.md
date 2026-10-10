@@ -13,8 +13,8 @@
 
 ## 前置条件
 
-1. 一台至少 2 vCPU、2 GB 内存的 VPS，已安装 Docker Compose。已有 Nginx 或面板监听 443 不需要改动。
-2. 准备一个真正可用的 HTTPS API 子域名。反代 127.0.0.1:18088，设置 client_max_body_size 26m 和 proxy_read_timeout 65s。
+1. 一台至少 2 vCPU、4 GB 内存（或使用已有 MySQL 降低资源占用）的 VPS，已安装 Docker Compose。已有 Nginx 或面板监听 443 不需要改动。
+2. 准备一个真正可用的 HTTPS API 子域名。反代 127.0.0.1:18088，设置 client_max_body_size 26m、proxy_read_timeout 65s，使用 proxy_set_header X-Forwarded-For $remote_addr 确保客户端不能伪造前置 IP。
 3. 在虎皮椒后台完成签约，申请商户 APPID 和 SECRET 并确认积分、虚拟权益、退款与有效期符合协议。
 4. 配置 SMTP 邮件服务与 Cloudflare Turnstile，才能开放公众注册。管理员账号需要独立初始化。
 5. 在 Vercel 配置 VITE_COMMERCIAL_API_URL（完整 HTTPS API Origin）和 VITE_TURNSTILE_SITE_KEY（只有公钥可暴露到前端）。
