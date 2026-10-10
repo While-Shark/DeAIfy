@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { Database } from '../db.js';
 import { execute } from '../db.js';
 import type { Config } from '../config.js';
-import { createPendingOrder, markCheckoutFailed, plansPublic, applyXunhuNotification } from '../orders.js';
+import { createPendingOrder, plansPublic, applyXunhuNotification } from '../orders.js';
 import { createXunhuCheckout, type XunhuParams } from '../payments/xunhu.js';
 import { requireIdentity } from './auth.js';
 
@@ -43,7 +43,8 @@ export function registerBilling(app:FastifyInstance,db:Database,config:Config) {
    });
    return reply.code(201).send({orderId:order.id,priceFen:order.priceFen,credits:order.credits,...gateway});
   }catch(error){
-   await markCheckoutFailed(db,order.id);
+   // Network timeouts are ambiguous: the gateway could still charge the user and notify us.
+   // Leave the order pending to reconcile a later signed webhook; never discard an uncertain payment.
    req.log.warn({orderId:order.id},'Xunhu checkout was not created');
    return reply.code(502).send({error:'PAYMENT_PROVIDER_UNAVAILABLE'});
   }
