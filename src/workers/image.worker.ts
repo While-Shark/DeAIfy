@@ -1,14 +1,12 @@
 /// <reference lib="webworker" />
 import { adjustPixels } from '../engine/pixels';
-import { applyBrushStrokes } from '../engine/brush';
 import type { ProcessorWorkerRequest, ProcessorWorkerResponse } from '../types/editor';
 
 const scope = self as DedicatedWorkerGlobalScope;
 
 scope.addEventListener('message', async (message: MessageEvent<ProcessorWorkerRequest>) => {
-  const { id, file, params, maxSide, mime, quality, strokes = [] } = message.data;
+  const { id, file, params, maxSide, mime, quality } = message.data;
   let bitmap: ImageBitmap | null = null;
-
   try {
     if (typeof OffscreenCanvas === 'undefined') {
       throw new Error('当前浏览器不支持离屏图像处理，请使用新版 Chrome 或 Edge。');
@@ -21,7 +19,6 @@ scope.addEventListener('message', async (message: MessageEvent<ProcessorWorkerRe
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) throw new Error('无法创建图像处理画布。');
 
-    // JPEG has no alpha channel; make transparency explicitly white.
     if (mime === 'image/jpeg') {
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, width, height);
@@ -29,17 +26,12 @@ scope.addEventListener('message', async (message: MessageEvent<ProcessorWorkerRe
     ctx.drawImage(bitmap, 0, 0, width, height);
     const pixels = ctx.getImageData(0, 0, width, height);
     adjustPixels(pixels.data, width, height, params);
-    if (strokes.length) applyBrushStrokes(pixels.data, width, height, strokes);
     ctx.putImageData(pixels, 0, 0);
-
     const blob = await canvas.convertToBlob({ type: mime, quality });
-    const result: ProcessorWorkerResponse = { id, type: 'result', blob, width, height };
-    scope.postMessage(result);
+    scope.postMessage({ id, type: 'result', blob, width, height } satisfies ProcessorWorkerResponse);
   } catch (error) {
-    const result: ProcessorWorkerResponse = {
-      id, type: 'error', message: error instanceof Error ? error.message : '本地图片处理失败。',
-    };
-    scope.postMessage(result);
+    scope.postMessage({ id, type: 'error',
+      message: error instanceof Error ? error.message : '本地图片处理失败。' } satisfies ProcessorWorkerResponse);
   } finally {
     bitmap?.close();
   }

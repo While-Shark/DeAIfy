@@ -34,8 +34,6 @@ export type ClassifierWorkerRequest = {
   type: 'assess';
   id: number;
   file: Blob;
-  model?: DetectorModel;
-  precise?: boolean;
 };
 
 export type ClassifierWorkerResponse =
@@ -50,7 +48,6 @@ export type ProcessorWorkerRequest = {
   maxSide?: number;
   mime: ExportFormat;
   quality: number;
-  strokes?: BrushStroke[];
 };
 
 export type ProcessorWorkerResponse =
@@ -59,10 +56,32 @@ export type ProcessorWorkerResponse =
 
 export type ExportReviewStage = 'idle' | 'rendering' | 'assessing' | 'ready' | 'error';
 
+export interface QualityDimensions {
+  exposure: number;
+  color: number;
+  texture: number;
+  edges: number;
+}
+
+/** Heuristic image-quality diagnostics, unrelated to image provenance. */
+export interface NaturalnessMetrics {
+  index: number;
+  clippedPercent: number;
+  averageSaturation: number;
+  textureIndex: number;
+  edgeRatio: number;
+  dimensions: QualityDimensions;
+  notes: string[];
+}
+
 export interface ExportReviewReport {
   originalScore: number | null;
   exportedScore: number | null;
   delta: number | null;
+  originalQuality: NaturalnessMetrics | null;
+  exportedQuality: NaturalnessMetrics | null;
+  originalQualityError: string;
+  exportedQualityError: string;
   originalProvenance: ProvenanceResult;
   exportedProvenance: ProvenanceResult;
   originalError: string;
@@ -70,45 +89,4 @@ export interface ExportReviewReport {
   filename: string;
   fileSize: number;
   format: ExportFormat;
-}
-
-/** Basic preserves v0.1.2 behavior. Advanced features are opt-in and remain local. */
-export type StudioMode = 'basic' | 'advanced';
-export type DetectorModel = 'primary' | 'secondary';
-export type BrushTool = 'lighten' | 'darken' | 'warm' | 'detail';
-export interface BrushStroke {
-  /** Coordinates and radius are relative to the actual image, never the letterboxed viewport. */
-  x: number;
-  y: number;
-  radius: number;
-  amount: number;
-  tool: BrushTool;
-}
-export interface NaturalnessMetrics {
-  /** Heuristic quality index. NOT a probability of real photography. */
-  index: number;
-  clippedPercent: number;
-  averageSaturation: number;
-  textureIndex: number;
-  notes: string[];
-}
-export interface AdvancedImageScores {
-  primary: number | null;
-  secondary: number | null;
-  naturalness: NaturalnessMetrics | null;
-}
-export interface AdvancedAnalysisReport {
-  original: AdvancedImageScores;
-  processed: AdvancedImageScores;
-  warnings: string[];
-  hasSecondary: boolean;
-}
-export type ImageOriginLabel = 'real' | 'ai';
-export interface EvaluationRecord {
-  id?: number;
-  name: string;
-  label: ImageOriginLabel;
-  primary: number | null;
-  secondary: number | null;
-  createdAt: number;
 }
