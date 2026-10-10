@@ -8,6 +8,11 @@ scope.addEventListener('message', async (message: MessageEvent<ProcessorWorkerRe
   const { id, file, params, maxSide, mime, quality } = message.data;
   let bitmap: ImageBitmap | null = null;
   try {
+    // Commercial builds must use VPS authorization for full-resolution output.
+    // This client-side guard is not a substitute for server-side entitlement checks.
+    if (import.meta.env.VITE_COMMERCIAL_API_URL && !maxSide) {
+      throw new Error('高清导出仅通过受保护的 VPS 服务完成。');
+    }
     if (typeof OffscreenCanvas === 'undefined') {
       throw new Error('当前浏览器不支持离屏图像处理，请使用新版 Chrome 或 Edge。');
     }

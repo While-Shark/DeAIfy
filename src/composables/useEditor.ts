@@ -2,6 +2,7 @@ import { computed, onScopeDispose, reactive, ref, shallowRef, watch } from 'vue'
 import { cloneParams, getPreset } from '../engine/presets';
 import { inspectProvenance } from '../services/provenance';
 import type { ExportFormat, NaturalnessMetrics, PresetId, ProcessingParams, ProvenanceResult, ScanStatus } from '../types/editor';
+import { useCommerce } from './useCommerce';
 import { useClassifier } from './useClassifier';
 import { useExportReview } from './useExportReview';
 import { useNaturalness } from './useNaturalness';
@@ -17,8 +18,11 @@ export function useEditor() {
   const { assess } = useClassifier();
   const { analyze } = useNaturalness();
   const { render } = useProcessor();
+  const commerce = useCommerce();
+  const exportRender = (image: Blob, options: ProcessingParams, mime: ExportFormat, maxSide?: number): Promise<Blob> =>
+    commerce.enabled ? commerce.process(image, options, mime) : render(image, options, mime, maxSide);
   const { reviewOpen, reviewStage, reviewReport, reviewError, startExportReview,
-    retryExportReview, confirmExportReview, cancelReview } = useExportReview(assess, render, analyze);
+    retryExportReview, confirmExportReview, cancelReview } = useExportReview(assess, exportRender, analyze);
 
   const file = shallowRef<File | null>(null);
   const originalUrl = ref('');

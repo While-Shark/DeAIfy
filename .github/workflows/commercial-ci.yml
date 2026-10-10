@@ -1,0 +1,65 @@
+name: Commercial API CI
+on:
+  push:
+    paths:
+      - 'server/**'
+      - 'docker-compose.commercial.yml'
+      - '.github/workflows/commercial-ci.yml'
+  pull_request:
+    paths:
+      - 'server/**'
+      - 'docker-compose.commercial.yml'
+      - '.github/workflows/commercial-ci.yml'
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: ci-only-root-password
+          MYSQL_DATABASE: deaify_test
+          MYSQL_USER: deaify_ci
+          MYSQL_PASSWORD: ci-only-db-password
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pci-only-root-password --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+    defaults:
+      run:
+        working-directory: server
+    env:
+      TEST_MYSQL_HOST: 127.0.0.1
+      TEST_MYSQL_PORT: "3306"
+      TEST_MYSQL_USER: deaify_ci
+      TEST_MYSQL_PASSWORD: ci-only-db-password
+      TEST_MYSQL_DATABASE: deaify_test
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Install server dependencies
+        run: npm install --no-audit --no-fund
+      - name: Typecheck API and processor
+        run: npm run typecheck
+      - name: Unit and MySQL integration tests
+        run: npm test
+      - name: Build API and processor
+        run: npm run build
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Validate Docker Compose configuration
+        run: docker compose --env-file .env.commercial.example -f docker-compose.commercial.yml config --quiet
+      - name: Build deployable image
+        run: docker build --tag deaify-server:ci server

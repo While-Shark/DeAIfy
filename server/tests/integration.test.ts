@@ -1,0 +1,64 @@
+import { randomUUID } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import mysql, { type Pool } from 'mysql2/promise';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { execute, rows } from '../src/db.js';
+import { addUser } from '../src/identity.js';
+import { createPendingOrder, applyXunhuNotification } from '../src/orders.js';
+import { signXunhu } from '../src/payments/xunhu.js';
+import { reserve, reverse, walletStatus } from '../src/wallet.js';
+
+let db: Pool;
+const mysqlTest = process.env.TEST_MYSQL_HOST ? describe : describe.skip;
+mysqlTest('real MySQL transaction and replay protection',()=>{
+ beforeAll(async()=>{
+  db=mysql.createPool({
+   host:process.env.TEST_MYSQL_HOST,
+   port:Number(process.env.TEST_MYSQL_PORT??3306),
+   user:process.env.TEST_MYSQL_USER, password:process.env.TEST_MYSQL_PASSWORD,
+   database:process.env.TEST_MYSQL_DATABASE, multipleStatements:true,
+   dateStrings:['DATE'], timezone:'Z', connectionLimit:12,
+  });
+  const schema=await readFile(new URL('../sql/schema.sql',import.meta.url),'utf8');
+  await db.query(schema);
+ });
+ afterAll(async()=>{await db?.end();});
+ async function createUser() {
+  const id=randomUUID();
+  await execute(db,'INSERT INTO users(id,email,password_hash) VALUES(?,?,?)',
+   [id,id+'@example.test','dummy-hash-not-for-auth']);
+  await execute(db,'INSERT INTO wallets(user_id,credits) VALUES(?,2)',[id]);
+  return id;
+ }
+ it('allows 5 daily free plus 2 paid, never overspends under concurrency, then reverses exactly once',async()=>{
+  const userId=await createUser();
+  const attempted=await Promise.allSettled(
+   Array.from({length:8},()=>reserve(db,userId,randomUUID(),5)));
+  const success=attempted.filter(x=>x.status==='fulfilled').map(x=>(x as PromiseFulfilledResult<Awaited<ReturnType<typeof reserve>>>).value);
+  expect(success).toHaveLength(7);
+  expect(attempted.filter(x=>x.status==='rejected')).toHaveLength(1);
+  expect(await walletStatus(db,userId,5)).toMatchObject({freeRemaining:0,credits:0});
+  const paid=success.find(x=>x.source==='credits')!;
+  expect(await reverse(db,userId,paid.jobId)).toBe(true);
+  expect(await reverse(db,userId,paid.jobId)).toBe(false);
+  expect((await walletStatus(db,userId,5)).credits).toBe(1);
+  const ledgers=await rows(db,'SELECT delta,kind FROM credit_ledger WHERE user_id=?',[userId]);
+  expect(ledgers.filter(x=>x.kind==='reversal')).toHaveLength(1);
+ });
+ it('only grants credits once for duplicate OD and reverses once for duplicate CD',async()=>{
+  const userId=await createUser();
+  const order=await createPendingOrder(db,userId,'plan-starter');
+  const data={appid:'merchant1',trade_order_id:order.id,total_fee:'9.90',
+   transaction_id:'platform-tx-123',status:'OD',time:'1770000000',nonce_str:'abc'};
+  const secret='test-app-secret';
+  expect(await applyXunhuNotification(db,{...data,hash:signXunhu(data,secret)},'merchant1',secret)).toBe('credited');
+  expect(await applyXunhuNotification(db,{...data,hash:signXunhu(data,secret)},'merchant1',secret)).toBe('duplicate');
+  expect((await walletStatus(db,userId)).credits).toBe(22);
+  const refund={...data,status:'CD'};
+  expect(await applyXunhuNotification(db,{...refund,hash:signXunhu(refund,secret)},'merchant1',secret)).toBe('refunded');
+  expect(await applyXunhuNotification(db,{...refund,hash:signXunhu(refund,secret)},'merchant1',secret)).toBe('duplicate_refund');
+  expect((await walletStatus(db,userId)).credits).toBe(2);
+  await expect(applyXunhuNotification(db,{...data,total_fee:'99.90',hash:signXunhu({...data,total_fee:'99.90'},secret)},'merchant1',secret))
+   .rejects.toThrow('Order / price mismatch');
+ });
+});

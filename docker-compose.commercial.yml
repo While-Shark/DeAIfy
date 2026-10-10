@@ -1,0 +1,110 @@
+name: deaify-commercial
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-deaify}
+      MYSQL_USER: ${MYSQL_USER:-deaify}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./server/sql/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+    networks: [database]
+    healthcheck:
+      test: ["CMD-SHELL","mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 35s
+    # Official MySQL entrypoint needs startup capabilities to set data-directory ownership.
+    # The database stays private with no published port.
+
+  api:
+    build:
+      context: ./server
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "8080"
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:?Required}
+      API_PUBLIC_ORIGIN: ${API_PUBLIC_ORIGIN:?Required}
+      RESULT_ENCRYPTION_KEY_HEX: ${RESULT_ENCRYPTION_KEY_HEX:?Required}
+      PROCESSOR_SHARED_TOKEN: ${PROCESSOR_SHARED_TOKEN:?Required}
+      FREE_USES_PER_DAY: ${FREE_USES_PER_DAY:-5}
+      REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-false}
+      PAYMENTS_ENABLED: ${PAYMENTS_ENABLED:-false}
+      MERCHANT_APPROVED: ${MERCHANT_APPROVED:-false}
+      XUNHU_APPID: ${XUNHU_APPID:-}
+      XUNHU_SECRET: ${XUNHU_SECRET:-}
+      XUNHU_GATEWAY: ${XUNHU_GATEWAY:-https://api.xunhupay.com}
+      TURNSTILE_SECRET: ${TURNSTILE_SECRET:-}
+      OTP_SECRET: ${OTP_SECRET:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-deaify}
+      MYSQL_USER: ${MYSQL_USER:-deaify}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Required}
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
+      PROCESSOR_URL: http://processor:8081
+      RESULTS_DIRECTORY: /data/results
+    ports:
+      - "127.0.0.1:${API_BIND_PORT:-18088}:8080"
+    volumes:
+      - result_data:/data/results
+    networks: [database,processor_net,egress]
+    depends_on:
+      mysql: {condition: service_healthy}
+      processor: {condition: service_started}
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,noexec,nosuid
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    pids_limit: 80
+    mem_limit: 512m
+    cpus: 1.0
+    healthcheck:
+      test: ["CMD","node","-e","fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 25s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  processor:
+    build:
+      context: ./server
+    restart: unless-stopped
+    command: ["node","dist/processor.js"]
+    environment:
+      NODE_ENV: production
+      PROCESSOR_PORT: "8081"
+      PROCESSOR_SHARED_TOKEN: ${PROCESSOR_SHARED_TOKEN:?Set PROCESSOR_SHARED_TOKEN}
+      NODE_OPTIONS: "--max-old-space-size=512"
+    networks: [processor_net]
+    read_only: true
+    tmpfs:
+      - /tmp:size=96m,noexec,nosuid
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    pids_limit: 48
+    mem_limit: 768m
+    cpus: 1.5
+    healthcheck:
+      test: ["CMD","node","-e","fetch('http://127.0.0.1:8081/internal/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  database: {internal: true}
+  processor_net: {internal: true}
+  egress: {}
+volumes:
+  mysql_data: {}
+  result_data: {}
