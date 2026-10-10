@@ -16,7 +16,10 @@ import type { ProcessingParams } from './types/editor';
 
 const commerce = useCommerce();
 const accountOpen = ref(false);
-onMounted(() => { void commerce.initialize(); });
+onMounted(() => {
+  void commerce.initialize();
+  if(new URLSearchParams(window.location.search).has('payment')) accountOpen.value=true;
+});
 const {
   file, filename, readableSize, originalUrl, previewUrl, dimensions, params, presetId,
   comparePercent, score, processedScore, scanStatus, processedScanStatus, downloadProgress,
