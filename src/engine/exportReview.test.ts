@@ -21,6 +21,8 @@ describe('export review', () => {
     expect(report.delta).toBe(29);
     expect(report.originalProvenance.status).toBe('ai-declared');
     expect(report.exportedProvenance.status).toBe('none');
+    expect(report.originalQuality).toBeNull();
+    expect(report.exportedQuality).toBeNull();
   });
   it('preserves unavailable outcomes rather than inventing numeric results', () => {
     const report = createExportReport({
