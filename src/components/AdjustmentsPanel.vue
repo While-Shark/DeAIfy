@@ -34,7 +34,7 @@ function update(key: keyof ProcessingParams, event: Event): void {
 
 <template>
   <section class="panel-section adjustments-section" aria-labelledby="adjustments-title">
-    <div class="section-heading"><span class="section-index">03</span><h2 id="adjustments-title">自然化工作台</h2></div>
+    <div class="section-heading"><span class="section-index">04</span><h2 id="adjustments-title">自然化工作台</h2></div>
     <div class="section-subheading"><Sparkles :size="14" /> 内置 5 套自然化方案 · 点击即可应用</div>
     <div class="preset-grid" :class="{ 'inactive-panel': !hasImage }">
       <button
@@ -55,10 +55,10 @@ function update(key: keyof ProcessingParams, event: Event): void {
         <ScanSearch v-else :size="15" />
         {{ scoring ? '正在评分…' : processedScore === null ? '检测当前处理效果' : '重新检测当前效果' }}
       </button>
-      <p v-if="processedScore !== null" class="preset-score-hint">当前预览模型评分：<strong>{{ processedScore }} / 100</strong></p>
-      <p v-else class="preset-score-hint">应用方案后手动评分；仅对当前预览图进行初筛。</p>
+      <p v-if="processedScore !== null" class="preset-score-hint">当前预览模型评分：<strong>{{ processedScore.toFixed(2) }} / 100</strong></p>
+      <p v-else class="preset-score-hint">应用方案后手动评分；同步检测 AI 初筛和四维画质。</p>
     </div>
-    <div class="controls-heading"><SlidersHorizontal :size="15" /><span>精细调节</span><span class="controls-hint">ADVANCED</span></div>
+    <div class="controls-heading"><SlidersHorizontal :size="15" /><span>精细调节</span><span class="controls-hint">MANUAL</span></div>
     <div class="sliders-list" :class="{ 'inactive-panel': !hasImage }">
       <label v-for="control in controls" :key="control.key" class="slider-field">
         <span class="slider-label"><span>{{ control.label }}</span><output>{{ props.params[control.key] }}{{ control.key === 'strength' ? '%' : '' }}</output></span>

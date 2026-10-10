@@ -53,6 +53,7 @@ export function useEditor() {
   let previewGeneration = 0;
   let previewTimer: ReturnType<typeof setTimeout> | undefined;
 
+  const canPreviewScore = computed(() => !!previewBlob.value && !isPreviewing.value);
   const filename = computed(() => file.value?.name ?? '未选择图片');
   const readableSize = computed(() => file.value
     ? (file.value.size / 1024 / 1024).toFixed(2) + ' MB' : '—');
@@ -284,7 +285,7 @@ export function useEditor() {
     scanPhase, provenance, uploadError, scanError, previewError, isPreviewing,
     sourceQuality, processedQuality, sourceQualityStatus, processedQualityStatus,
     sourceQualityError, processedQualityError,
-    exportFormat, selectFile, selectPreset, rerunAssessment, reviewBeforeExport, reset,
+    canPreviewScore, exportFormat, selectFile, selectPreset, rerunAssessment, reviewBeforeExport, reset,
     reviewOpen, reviewStage, reviewReport, reviewError, retryExportReview,
     confirmExportReview, cancelReview,
   };

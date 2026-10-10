@@ -12,7 +12,7 @@ function chooseFormat(event: Event): void {
 
 <template>
   <section class="panel-section export-section" aria-labelledby="export-title">
-    <div class="section-heading"><span class="section-index">04</span><h2 id="export-title">导出图片</h2></div>
+    <div class="section-heading"><span class="section-index">05</span><h2 id="export-title">导出图片</h2></div>
     <label class="format-label" for="output-format"><FileOutput :size="15" /> 输出格式</label>
     <select id="output-format" class="format-select" :value="format" :disabled="!hasImage" @change="chooseFormat">
       <option value="image/png">PNG · 无损 / 透明背景</option>

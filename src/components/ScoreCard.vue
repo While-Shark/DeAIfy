@@ -40,7 +40,7 @@ const scanning = computed(() => ['loading', 'evaluating'].includes(props.status)
               <circle v-if="score !== null" class="gauge-fill" cx="50" cy="50" r="40" :stroke-dasharray="ringDasharray" transform="rotate(-90 50 50)" />
             </svg>
             <div class="gauge-value">
-              <template v-if="score !== null"><strong>{{ score }}</strong><span>/ 100</span></template>
+              <template v-if="score !== null"><strong>{{ score.toFixed(2) }}</strong><span>/ 100</span></template>
               <LoaderCircle v-else-if="scanning" class="spin" :size="27" />
               <span v-else class="score-unknown">—</span>
             </div>
@@ -74,7 +74,7 @@ const scanning = computed(() => ['loading', 'evaluating'].includes(props.status)
           <span>{{ provenance.message }}</span>
         </div>
         <div v-if="processedScore !== null" class="rescore-result">
-          <CheckCircle2 :size="15" /> 处理后模型评分 <strong>{{ processedScore }} / 100</strong>
+          <CheckCircle2 :size="15" /> 处理后模型评分 <strong>{{ processedScore.toFixed(2) }} / 100</strong>
         </div>
         <button class="secondary-button rescore-button" type="button" :disabled="!canRescore || processedStatus === 'loading'" @click="emit('rescore')">
           <LoaderCircle v-if="processedStatus === 'loading'" class="spin" :size="14" />
