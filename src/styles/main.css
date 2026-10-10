@@ -1,3 +1,4 @@
+@import './advanced.css';
 @import './panels.css';
 @import './workspace.css';
 @import './responsive.css';
@@ -90,4 +91,3 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .spin { animation: spin 1.2s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-@import './advanced.css';
