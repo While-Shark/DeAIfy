@@ -15,7 +15,7 @@ const db=openDb(config);
 await db.query('SELECT 1');
 const app=Fastify({
  logger:{redact:['req.headers.authorization','req.headers.cookie','req.body.password','req.body.code','req.body.hash']},
- bodyLimit:1024*1024,requestTimeout:60_000,trustProxy:1,
+ bodyLimit:1024*1024,requestTimeout:60_000,trustProxy:true,
 });
 await app.register(cors,{origin:config.frontendOrigin,methods:['GET','POST','PUT','OPTIONS'],
  allowedHeaders:['Authorization','Content-Type','Idempotency-Key'],credentials:false});
