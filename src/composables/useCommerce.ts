@@ -100,17 +100,20 @@ async function process(file:Blob,params:ProcessingParams,format:ExportFormat):Pr
  if(!user.value)throw new Error('请先登录，再使用 VPS 完整分辨率导出');
  const bytes=await file.arrayBuffer();
  const paramText=JSON.stringify(params);
- const fingerprint=await crypto.subtle.digest('SHA-256',new Uint8Array([
-  ...new Uint8Array(bytes),...new TextEncoder().encode(paramText+format),
- ]));
+ const suffix=new TextEncoder().encode(paramText+format);
+ const material=new Uint8Array(bytes.byteLength+suffix.byteLength);
+ material.set(new Uint8Array(bytes),0);material.set(suffix,bytes.byteLength);
+ const fingerprint=await crypto.subtle.digest('SHA-256',material);
  const fingerprintHex=Array.from(new Uint8Array(fingerprint)).map(n=>n.toString(16).padStart(2,'0')).join('');
  const key=jobKeys.get(fingerprintHex)??crypto.randomUUID().replaceAll('-','');
  jobKeys.set(fingerprintHex,key);
  const form=new FormData();
  form.set('params',paramText);
  form.set('format',format);
- form.set('image',new File([file],'image.'+(format==='image/jpeg'?'jpg':format.split('/')[1]),{
-  type:file.type||'image/png',
+ const mime=file.type==='image/jpeg'||file.type==='image/png'||file.type==='image/webp'
+  ? file.type:'image/png';
+ form.set('image',new File([file],'input.'+(mime==='image/jpeg'?'jpg':mime.split('/')[1]),{
+  type:mime,
  }));
  let created;
  try {
