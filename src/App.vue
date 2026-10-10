@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { ArrowDownRight, Cpu, Globe2, LockKeyhole } from 'lucide-vue-next';
+import { ref, onMounted } from 'vue';
+import { useCommerce } from './composables/useCommerce';
+import CommerceDrawer from './components/CommerceDrawer.vue';
 import AppHeader from './components/AppHeader.vue';
 import UploadPanel from './components/UploadPanel.vue';
 import ScoreCard from './components/ScoreCard.vue';
@@ -11,6 +14,9 @@ import ExportReviewDialog from './components/ExportReviewDialog.vue';
 import { useEditor } from './composables/useEditor';
 import type { ProcessingParams } from './types/editor';
 
+const commerce = useCommerce();
+const accountOpen = ref(false);
+onMounted(() => { void commerce.initialize(); });
 const {
   file, filename, readableSize, originalUrl, previewUrl, dimensions, params, presetId,
   comparePercent, score, processedScore, scanStatus, processedScanStatus, downloadProgress,
@@ -21,6 +27,17 @@ const {
   reviewOpen, reviewStage, reviewReport, reviewError, retryExportReview, confirmExportReview, cancelReview,
 } = useEditor();
 
+function handleExport():void {
+  if(commerce.enabled){
+    if(!commerce.authenticated.value){accountOpen.value=true;return;}
+    const remaining=commerce.wallet.value?.freeRemaining??0;
+    const credits=commerce.wallet.value?.credits??0;
+    if(remaining<1&&credits<1){accountOpen.value=true;return;}
+    const charge=remaining>0?'使用今日 1 次免费额度':'消耗 1 积分';
+    if(!window.confirm('确认'+charge+'？将临时上传图片到 VPS 进行完整分辨率处理。成功后扣费，结果保存约 30 分钟。'))return;
+  }
+  reviewBeforeExport();
+}
 function updateParam(key: keyof ProcessingParams, value: number): void {
   params[key] = value;
 }
@@ -28,7 +45,7 @@ function updateParam(key: keyof ProcessingParams, value: number): void {
 
 <template>
   <div class="app-shell">
-    <AppHeader :has-image="!!file" @reset="reset" />
+    <AppHeader :has-image="!!file" :commercial="commerce.enabled" @account="accountOpen=true" @reset="reset" />
     <div class="hero-strip">
       <span class="eyebrow"><span class="eyebrow-line"></span> THE IMAGE NATURALIZATION STUDIO</span>
       <span class="hero-strip-copy">MAKE AI IMAGES FEEL MORE NATURAL <ArrowDownRight :size="15" /></span>
@@ -58,9 +75,10 @@ function updateParam(key: keyof ProcessingParams, value: number): void {
           :processed-score="processedScore" @score="rerunAssessment"
           @select-preset="selectPreset" @set-param="updateParam" />
         <ExportPanel :has-image="!!file" :exporting="reviewOpen" :format="exportFormat"
-          @export="reviewBeforeExport" @update:format="exportFormat = $event" />
+          @export="handleExport" @update:format="exportFormat = $event" />
       </aside>
     </main>
+    <CommerceDrawer v-if="commerce.enabled" :open="accountOpen" @close="accountOpen=false" />
     <Teleport to="body">
       <ExportReviewDialog v-if="reviewOpen" :stage="reviewStage" :report="reviewReport"
         :error="reviewError" @close="cancelReview"
@@ -68,7 +86,7 @@ function updateParam(key: keyof ProcessingParams, value: number): void {
     </Teleport>
     <footer class="site-footer">
       <div class="footer-left"><span>DeAIfy © 2026</span><span class="footer-divider"></span><span>Designed for a more natural image.</span></div>
-      <div class="footer-facts"><span><LockKeyhole :size="13" /> No image upload</span><span><Cpu :size="13" /> On-device processing</span><span><Globe2 :size="13" /> Open source</span></div>
+      <div class="footer-facts"><span><LockKeyhole :size="13" /> {{ commerce.enabled ? 'Preview locally · Export on VPS' : 'No image upload' }}</span><span><Cpu :size="13" /> {{ commerce.enabled ? 'Protected processing' : 'On-device processing' }}</span><span><Globe2 :size="13" /> Open source</span></div>
     </footer>
   </div>
 </template>
