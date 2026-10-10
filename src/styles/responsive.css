@@ -10,7 +10,7 @@
   .left-rail { grid-column: 1; grid-row: 1 / span 2; }
   .center-rail { grid-column: 2; grid-row: 1; }
   .right-rail { grid-column: 2; grid-row: 2; border-left: 0; border-top: 1px solid #2b3735; }
-  .right-rail .preset-grid { grid-template-columns: repeat(4,1fr); }
+  .right-rail .preset-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
   .right-rail .sliders-list { display: grid; grid-template-columns: repeat(2,1fr); gap: 18px; }
   .stage-view { min-height: 445px; }
   .stage-panel { min-height: 560px; }

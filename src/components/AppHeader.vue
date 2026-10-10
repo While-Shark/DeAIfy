@@ -10,7 +10,7 @@ const emit = defineEmits<{ reset: [] }>();
     <div class="brand-group">
       <div class="brand-mark"><Aperture :size="23" :stroke-width="2" /></div>
       <div class="brand-text">De<span>AI</span>fy<span class="brand-dot">.</span></div>
-      <span class="version-tag">BETA / 0.1.1</span>
+      <span class="version-tag">BETA / 0.1.2</span>
     </div>
     <nav class="header-actions" aria-label="顶部操作">
       <span class="header-privacy"><ShieldCheck :size="15" /> Local-first · 图片不上传</span>

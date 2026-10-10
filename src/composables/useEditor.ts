@@ -121,25 +121,25 @@ export function useEditor() {
 
   async function rerunAssessment(): Promise<void> {
     const current = generation;
+    const currentPreview = previewGeneration;
     const snapshot = previewBlob.value;
-    if (!snapshot || processedScanStatus.value === 'loading') return;
+    if (!snapshot || isPreviewing.value || processedScanStatus.value === 'loading') return;
     processedScore.value = null;
     processedScanStatus.value = 'loading';
     try {
       const result = await assess(snapshot);
-      if (current === generation && snapshot === previewBlob.value) {
+      if (current === generation && currentPreview === previewGeneration && snapshot === previewBlob.value) {
         processedScore.value = result;
         processedScanStatus.value = 'complete';
       }
     } catch {
-      if (current === generation) processedScanStatus.value = 'error';
+      if (current === generation && currentPreview === previewGeneration) processedScanStatus.value = 'error';
     }
   }
 
-  async function buildPreview(): Promise<void> {
+  async function buildPreview(current: number): Promise<void> {
     const image = file.value;
     if (!image) return;
-    const current = ++previewGeneration;
     isPreviewing.value = true;
     previewError.value = '';
     try {
@@ -161,9 +161,14 @@ export function useEditor() {
   }
 
   function schedulePreview(): void {
+    // Invalidate preview and score immediately, including during debounce.
+    const current = ++previewGeneration;
     if (previewTimer) clearTimeout(previewTimer);
+    processedScore.value = null;
+    processedScanStatus.value = 'idle';
+    isPreviewing.value = Boolean(file.value);
     if (!file.value) return;
-    previewTimer = setTimeout(() => { void buildPreview(); }, 180);
+    previewTimer = setTimeout(() => { void buildPreview(current); }, 180);
   }
 
   watch(file, schedulePreview);

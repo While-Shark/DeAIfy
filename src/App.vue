@@ -45,6 +45,8 @@ function updateParam(key: keyof ProcessingParams, value: number): void {
       <aside class="right-rail">
         <div class="rail-heading">EDIT & EXPORT <span> / 02</span></div>
         <AdjustmentsPanel :has-image="!!file" :preset-id="presetId" :params="params"
+          :can-score="!!previewUrl && !isPreviewing" :scoring="processedScanStatus === 'loading'"
+          :processed-score="processedScore" @score="rerunAssessment"
           @select-preset="selectPreset" @set-param="updateParam" />
         <ExportPanel :has-image="!!file" :exporting="reviewOpen" :format="exportFormat"
           @export="reviewBeforeExport" @update:format="exportFormat = $event" />
