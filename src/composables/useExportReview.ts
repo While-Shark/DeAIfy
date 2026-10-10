@@ -93,7 +93,8 @@ export function useExportReview(assess: Assess, render: Render) {
 
   function startExportReview(input: ExportInput): void {
     if (reviewOpen.value) return;
-    returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    returnFocus = typeof HTMLElement !== 'undefined' && document.activeElement instanceof HTMLElement
+      ? document.activeElement : null;
     // Freeze parameters and source file while the confirmation dialog is open.
     lastInput = { ...input, params: { ...input.params } };
     void performReview(lastInput);
