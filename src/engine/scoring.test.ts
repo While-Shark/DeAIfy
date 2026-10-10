@@ -25,6 +25,10 @@ describe('reality score', () => {
     expect(getScoreLabel(60)).toBe('初步通过');
     expect(getScoreLabel(80)).toBe('模型倾向真实照片');
   });
+  it('offers hundredth precision in advanced mode without changing basic rounded scores', () => {
+    expect(calculateRealityScore([{ label: 'real', score: 0.68123 }, { label: 'fake', score: 0.31877 }], 2)).toBe(68.12);
+    expect(classify(0.68123, 0.31877)).toBe(68);
+  });
   it('rejects missing or invalid model classes (never invents a score)', () => {
     expect(() => calculateRealityScore([{ label: 'real', score: 1 }])).toThrow();
     expect(() => classify(Number.NaN, 0.5)).toThrow();

@@ -1,11 +1,12 @@
 /// <reference lib="webworker" />
 import { adjustPixels } from '../engine/pixels';
+import { applyBrushStrokes } from '../engine/brush';
 import type { ProcessorWorkerRequest, ProcessorWorkerResponse } from '../types/editor';
 
 const scope = self as DedicatedWorkerGlobalScope;
 
 scope.addEventListener('message', async (message: MessageEvent<ProcessorWorkerRequest>) => {
-  const { id, file, params, maxSide, mime, quality } = message.data;
+  const { id, file, params, maxSide, mime, quality, strokes = [] } = message.data;
   let bitmap: ImageBitmap | null = null;
 
   try {
@@ -28,6 +29,7 @@ scope.addEventListener('message', async (message: MessageEvent<ProcessorWorkerRe
     ctx.drawImage(bitmap, 0, 0, width, height);
     const pixels = ctx.getImageData(0, 0, width, height);
     adjustPixels(pixels.data, width, height, params);
+    if (strokes.length) applyBrushStrokes(pixels.data, width, height, strokes);
     ctx.putImageData(pixels, 0, 0);
 
     const blob = await canvas.convertToBlob({ type: mime, quality });

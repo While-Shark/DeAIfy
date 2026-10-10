@@ -1,17 +1,23 @@
-import { computed, onScopeDispose, reactive, ref, shallowRef, watch } from 'vue';
+import { computed, onMounted, onScopeDispose, reactive, ref, shallowRef, watch } from 'vue';
 import { getPreset, cloneParams } from '../engine/presets';
 import { inspectProvenance } from '../services/provenance';
-import type { ExportFormat, PresetId, ProcessingParams, ProvenanceResult, ScanStatus } from '../types/editor';
+import type { BrushStroke, BrushTool, ExportFormat, PresetId, ProcessingParams, ProvenanceResult, ScanStatus, StudioMode } from '../types/editor';
 import { useClassifier } from './useClassifier';
 import { useExportReview } from './useExportReview';
 import { useProcessor } from './useProcessor';
+import { useNaturalness } from './useNaturalness';
+import { useAdvancedAnalysis } from './useAdvancedAnalysis';
+import { useEvaluation } from './useEvaluation';
 
 const ALLOWED_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 const MAX_BYTES = 25 * 1024 * 1024;
 const MAX_PIXELS = 30_000_000;
 
 export function useEditor() {
-  const { assess } = useClassifier();
+  const { assess, assessModel } = useClassifier();
+  const { analyze } = useNaturalness();
+  const advanced = useAdvancedAnalysis(assessModel, analyze);
+  const evaluation = useEvaluation(assessModel);
   const { render } = useProcessor();
   const { reviewOpen, reviewStage, reviewReport, reviewError, startExportReview,
     retryExportReview, confirmExportReview, cancelReview } = useExportReview(assess, render);
@@ -35,6 +41,17 @@ export function useEditor() {
   const previewError = ref('');
   const isPreviewing = ref(false);
   const exportFormat = ref<ExportFormat>('image/png');
+  const mode = ref<StudioMode>('basic');
+  const brushEnabled = ref(false);
+  const brushTool = ref<BrushTool>('lighten');
+  const brushRadius = ref(0.065);
+  const brushAmount = ref(0.55);
+  const strokes = ref<BrushStroke[]>([]);
+  const includeSecondary = ref(false);
+  onMounted(() => {
+    try { if (localStorage.getItem('deaify-studio-mode') === 'advanced') mode.value = 'advanced'; }
+    catch { /* Browser storage can be disabled. */ }
+  });
   let generation = 0;
   let previewGeneration = 0;
   let previewTimer: ReturnType<typeof setTimeout> | undefined;
@@ -52,6 +69,8 @@ export function useEditor() {
   async function selectFile(candidate: File): Promise<void> {
     const current = ++generation;
     cancelReview();
+    advanced.invalidate();
+    strokes.value = [];
     ++previewGeneration;
     if (previewTimer) clearTimeout(previewTimer);
     clearObjectUrls();
@@ -143,7 +162,7 @@ export function useEditor() {
     isPreviewing.value = true;
     previewError.value = '';
     try {
-      const result = await render(image, { ...params }, 'image/webp', 1800);
+      const result = await render(image, { ...params }, 'image/webp', 1800, mode.value === 'advanced' ? strokes.value : []);
       if (current !== previewGeneration) return;
       const newUrl = URL.createObjectURL(result);
       if (previewUrl.value) URL.revokeObjectURL(previewUrl.value);
@@ -166,6 +185,7 @@ export function useEditor() {
     if (previewTimer) clearTimeout(previewTimer);
     processedScore.value = null;
     processedScanStatus.value = 'idle';
+    advanced.invalidate();
     isPreviewing.value = Boolean(file.value);
     if (!file.value) return;
     previewTimer = setTimeout(() => { void buildPreview(current); }, 180);
@@ -177,6 +197,29 @@ export function useEditor() {
     schedulePreview();
   }, { deep: true });
   watch(exportFormat, () => { if (reviewOpen.value) cancelReview(); });
+  watch(mode, () => {
+    if (reviewOpen.value) cancelReview();
+    if (mode.value !== 'advanced') brushEnabled.value = false;
+    schedulePreview();
+  });
+
+  function selectMode(next: StudioMode): void {
+    mode.value = next;
+    try { localStorage.setItem('deaify-studio-mode', next); } catch { /* optional preference */ }
+  }
+  function addBrushStroke(point: BrushStroke): void {
+    if (mode.value !== 'advanced' || !file.value || strokes.value.length >= 240) return;
+    strokes.value.push(point);
+  }
+  function completeBrushStroke(): void { if (mode.value === 'advanced' && file.value) schedulePreview(); }
+  function undoBrush(): void { if (strokes.value.length) { strokes.value.pop(); schedulePreview(); } }
+  function clearBrush(): void { if (strokes.value.length) { strokes.value = []; schedulePreview(); } }
+  async function runAdvancedAnalysis(): Promise<void> {
+    const original = file.value;
+    const processed = previewBlob.value;
+    if (mode.value !== 'advanced' || !original || !processed || isPreviewing.value || advanced.busy.value) return;
+    await advanced.run(original, processed, includeSecondary.value);
+  }
 
   function selectPreset(id: PresetId): void {
     presetId.value = id;
@@ -188,6 +231,7 @@ export function useEditor() {
     startExportReview({
       file: file.value,
       params: { ...params },
+      strokes: mode.value === 'advanced' ? [...strokes.value] : [],
       format: exportFormat.value,
       sourceScore: score.value,
       sourceProvenance: provenance.value,
@@ -196,6 +240,8 @@ export function useEditor() {
 
   function reset(): void {
     cancelReview();
+    advanced.invalidate();
+    strokes.value = [];
     ++generation;
     ++previewGeneration;
     if (previewTimer) clearTimeout(previewTimer);
@@ -213,6 +259,7 @@ export function useEditor() {
   }
 
   onScopeDispose(() => {
+    advanced.invalidate();
     ++generation;
     ++previewGeneration;
     if (previewTimer) clearTimeout(previewTimer);
@@ -225,5 +272,8 @@ export function useEditor() {
     scanPhase, provenance, uploadError, scanError, previewError, isPreviewing,
     exportFormat, selectFile, selectPreset, rerunAssessment, reviewBeforeExport, reset,
     reviewOpen, reviewStage, reviewReport, reviewError, retryExportReview, confirmExportReview, cancelReview,
+    mode, selectMode, brushEnabled, brushTool, brushRadius, brushAmount, strokes,
+    addBrushStroke, completeBrushStroke, undoBrush, clearBrush,
+    includeSecondary, advanced, runAdvancedAnalysis, evaluation,
   };
 }

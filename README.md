@@ -98,3 +98,19 @@ npm install && npm run dev
 ## License
 
 MIT. Model and dependencies have their own respective licenses. Contributions welcome.
+
+## Studio Modes (v0.4)
+
+**Basic (default):** Preserves the original v0.1.2 experience: five presets, manual re-scoring and export verification. Uses only the existing ~15 MB quantized classifier. Does not download the second model.
+
+**Advanced (optional):** Switch from the tab above the editor. All processing is on the user's device:
+
+- **Two independent image classifiers:** primary ONNX ViT (`ai-image-detect-distilled-ONNX`, q8) and optional `onnx-community/ai-image-detection-ONNX` (q4, approx. 57 MB), trained primarily on older generators. Advanced results use two decimal places and list **independent outputs**; there is no misleading ensemble-confidence number. Selecting Advanced does not trigger the optional download; enabling the checkbox and starting analysis does.
+- **Naturalness / texture diagnostics:** lightweight OffscreenCanvas Web Worker with clipped highlight/shadow, saturation, spatial variation and edge checks. This is a *heuristic image-quality indicator*, not AI provenance detection and not a probability of genuine photography. Scores should only be compared on similar images.
+- **Local brush:** lighten, darken, warm and detail adjustments on the actual image coordinates (correctly mapped through object-fit/letterboxing), with radius/intensity, undo and clear. Edits are applied both in preview and to the exact full-resolution exported image. Switching to Basic does not apply brush effects, but retains the strokes until you reset or upload another image.
+- **User-labeled benchmark:** import known-real or known-AI examples, then run the detector(s). Store **only filename, category, score, timestamp** in local IndexedDB; never store image bytes. Get accuracy / false-positive and false-negative rates against user-provided labels, download JSON, or clear records. Small/one-class sample sets do not establish general accuracy or calibrate the 60-point threshold.
+- **Model cache manager:** browser Cache Storage inspection, usage estimate, persistent storage request, and explicit cache removal. Browsers can still evict cached models; some caches live under the HTTP cache and are not directly enumerable. No server database or GPU service is used.
+
+> Neither model has been verified for the latest Gemini/Nano Banana generations. Source C2PA and X platform labels are still separate from visual detector scores. DeAIfy makes no guarantee that changes prevent social-platform AI labeling. Preserve originals and disclose synthetic origin as appropriate.
+
+Advanced tools lazy-load when clicked. Large images and multiple models can use substantial device memory; on mobile, consider leaving secondary detection disabled.

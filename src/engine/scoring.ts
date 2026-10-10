@@ -3,7 +3,7 @@ import type { Prediction } from '../types/editor';
 /** Product threshold, not a statistically calibrated probability cut-off. */
 export const PASS_SCORE = 60;
 
-export function calculateRealityScore(predictions: Prediction[]): number {
+export function calculateRealityScore(predictions: Prediction[], digits: 0 | 2 = 0): number {
   const real = predictions.find((item) => item.label.trim().toLowerCase() === 'real');
   const fake = predictions.find((item) => item.label.trim().toLowerCase() === 'fake');
 
@@ -12,7 +12,7 @@ export function calculateRealityScore(predictions: Prediction[]): number {
     throw new Error('模型没有返回有效的 real / fake 双类别结果。');
   }
 
-  return Math.max(0, Math.min(100, Math.round((real.score / (real.score + fake.score)) * 100)));
+  return Math.max(0, Math.min(100, Math.round((real.score / (real.score + fake.score)) * (digits === 2 ? 10_000 : 100)) / (digits === 2 ? 100 : 1)));
 }
 
 export function getVerdict(score: number): 'suspected' | 'passed' {
