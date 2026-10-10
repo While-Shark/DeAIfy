@@ -8,7 +8,7 @@ export function openDb(config: Config): Database {
   return mysql.createPool({
     ...config.mysql, waitForConnections: true, connectionLimit: 10,
     timezone: 'Z', decimalNumbers: false, supportBigNumbers: true,
-    namedPlaceholders: false, multipleStatements: false,
+    namedPlaceholders: false, multipleStatements: false, dateStrings: ['DATE'],
   });
 }
 export async function tx<T>(db: Database, callback: (conn: Connection) => Promise<T>): Promise<T> {
