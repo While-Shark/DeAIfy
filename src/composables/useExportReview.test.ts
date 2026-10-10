@@ -38,7 +38,7 @@ describe('export review gate', () => {
     gate.startExportReview(input());
     await settled();
     expect(gate.reviewStage.value).toBe('ready');
-    expect(render).toHaveBeenCalledWith(expect.any(File), params, 'image/png');
+    expect(render).toHaveBeenCalledWith(expect.any(File), params, 'image/png', undefined, []);
     expect(assess).toHaveBeenCalledTimes(1);
     expect(assess.mock.calls[0][0].size).toBe(blob.size);
     expect(gate.reviewReport.value?.delta).toBe(29);

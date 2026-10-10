@@ -2,7 +2,7 @@ import type { ExportFormat, ExportReviewReport, ProvenanceResult } from '../type
 
 /** The 0-100 values are model outputs, not calibrated probabilities. */
 export function scoreDelta(original: number | null, exported: number | null): number | null {
-  return original === null || exported === null ? null : exported - original;
+  return original === null || exported === null ? null : Math.round((exported - original) * 100) / 100;
 }
 
 export function exportFilename(originalName: string, format: ExportFormat): string {

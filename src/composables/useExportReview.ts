@@ -1,18 +1,19 @@
 import { onScopeDispose, ref, shallowRef } from 'vue';
 import { createExportReport, exportFilename } from '../engine/exportReview';
 import { inspectProvenance } from '../services/provenance';
-import type { ExportFormat, ExportReviewReport, ExportReviewStage, ProcessingParams, ProvenanceResult } from '../types/editor';
+import type { BrushStroke, ExportFormat, ExportReviewReport, ExportReviewStage, ProcessingParams, ProvenanceResult } from '../types/editor';
 
 interface ExportInput {
   file: File;
   params: ProcessingParams;
+  strokes?: BrushStroke[];
   format: ExportFormat;
   sourceScore: number | null;
   sourceProvenance: ProvenanceResult;
 }
 
 type Assess = (file: Blob) => Promise<number>;
-type Render = (file: Blob, params: ProcessingParams, mime: ExportFormat, maxSide?: number) => Promise<Blob>;
+type Render = (file: Blob, params: ProcessingParams, mime: ExportFormat, maxSide?: number, strokes?: readonly BrushStroke[]) => Promise<Blob>;
 
 function errorText(error: unknown): string {
   return error instanceof Error ? error.message : 'Unknown model error';
@@ -51,7 +52,7 @@ export function useExportReview(assess: Assess, render: Render) {
 
     try {
       // Render only once at full resolution, using the user's selected export format.
-      const output = await render(input.file, { ...input.params }, input.format);
+      const output = await render(input.file, { ...input.params }, input.format, undefined, input.strokes ?? []);
       if (id !== sequence) return;
       preparedBlob = output;
       reviewStage.value = 'assessing';
@@ -96,7 +97,7 @@ export function useExportReview(assess: Assess, render: Render) {
     returnFocus = typeof HTMLElement !== 'undefined' && document.activeElement instanceof HTMLElement
       ? document.activeElement : null;
     // Freeze parameters and source file while the confirmation dialog is open.
-    lastInput = { ...input, params: { ...input.params } };
+    lastInput = { ...input, params: { ...input.params }, strokes: [...(input.strokes ?? [])] };
     void performReview(lastInput);
   }
 

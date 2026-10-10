@@ -36,4 +36,8 @@ describe('export review', () => {
     expect(exportFilename('photo.webp', 'image/png')).toBe('photo-deaify.png');
     expect(exportFilename('path\\name.jpeg', 'image/webp')).toBe('path_name-deaify.webp');
   });
+  it('rounds fractional advanced-mode score deltas', () => {
+    expect(scoreDelta(68.12, 71.37)).toBe(3.25);
+  });
+
 });
