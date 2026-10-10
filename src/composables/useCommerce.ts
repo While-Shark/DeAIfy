@@ -87,6 +87,19 @@ async function checkout(planId:string) {
 }
 async function orders() {return (await call('/api/account/orders')).orders;}
 async function ledger() {return (await call('/api/account/ledger')).entries;}
+async function jobs() {return (await call('/api/account/jobs')).jobs;}
+async function downloadJob(id:string,filename:string):Promise<void> {
+ if(!/^[a-f0-9-]{36}$/i.test(id))throw new Error('Invalid job');
+ const response=await fetch(apiBase+'/api/jobs/'+id+'/download',{
+  headers:{Authorization:'Bearer '+token.value},cache:'no-store',
+ });
+ if(!response.ok)throw new Error('Result expired or unavailable');
+ const blob=await response.blob();
+ const href=URL.createObjectURL(blob);
+ const anchor=document.createElement('a');
+ anchor.href=href;anchor.download=filename;document.body.append(anchor);anchor.click();anchor.remove();
+ setTimeout(()=>URL.revokeObjectURL(href),30000);
+}
 async function getAdminPlans():Promise<AdminPlan[]>{return (await call('/api/admin/plans')).plans;}
 async function saveAdminPlan(plan:Record<string,unknown>,id?:string){
  return call(id?'/api/admin/plans/'+encodeURIComponent(id):'/api/admin/plans',{
@@ -134,6 +147,6 @@ export function useCommerce() {
  return {
   enabled:!!apiBase,user,wallet,plans,paymentEnabled,registrationEnabled,busy,error,
   authenticated:computed(()=>!!user.value),initialize,refresh,login,register,sendCode,
-  logout,checkout,orders,ledger,getAdminPlans,saveAdminPlan,getAdminOrders,getAdminUsers,process,
+  logout,checkout,orders,ledger,jobs,downloadJob,getAdminPlans,saveAdminPlan,getAdminOrders,getAdminUsers,process,
  };
 }
