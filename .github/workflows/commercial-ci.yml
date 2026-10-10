@@ -59,5 +59,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
+      - name: Validate Docker Compose configuration
+        run: docker compose --env-file .env.commercial.example -f docker-compose.commercial.yml config --quiet
       - name: Build deployable image
         run: docker build --tag deaify-server:ci server
