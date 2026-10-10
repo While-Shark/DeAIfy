@@ -40,6 +40,11 @@ export function registerAuth(app:FastifyInstance,db:Database,config:Config) {
   if(!await checkTurnstile(body.turnstileToken,config,req.ip))return reply.code(403).send({error:'CHALLENGE_REQUIRED'});
   const [existing]=await rows<ExistingUser>(db,'SELECT id FROM users WHERE email=? LIMIT 1',[email]);
   if(existing)return {sent:true};
+  // Limit resending the same address across rotating IPs; avoid mailbox harassment.
+  const [recent]=await rows(db,
+   'SELECT id FROM email_codes WHERE email=? AND created_at>DATE_SUB(UTC_TIMESTAMP(3),INTERVAL 60 SECOND) LIMIT 1',
+   [email]);
+  if(recent)return {sent:true};
   const code=String(randomInt(100000,1000000));
   await execute(db,'INSERT INTO email_codes(id,email,code_digest,expires_at) VALUES(?,?,?,DATE_ADD(UTC_TIMESTAMP(3),INTERVAL 10 MINUTE))',
    [randomUUID(),email,codeDigest(email,code,config.otpSecret)]);
