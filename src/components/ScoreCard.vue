@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { AlertCircle, BadgeCheck, CheckCircle2, CircleHelp, LoaderCircle, RefreshCw, ScanSearch, ShieldAlert } from 'lucide-vue-next';
 import { getScoreLabel, getVerdict, PASS_SCORE } from '../engine/scoring';
+import { reviewCopy as copy } from '../i18n/exportReview';
 import type { ProvenanceResult, ScanStatus } from '../types/editor';
 
 const props = defineProps<{
@@ -78,7 +79,7 @@ const scanning = computed(() => ['loading', 'evaluating'].includes(props.status)
         <button class="secondary-button rescore-button" type="button" :disabled="!canRescore || processedStatus === 'loading'" @click="emit('rescore')">
           <LoaderCircle v-if="processedStatus === 'loading'" class="spin" :size="14" />
           <RefreshCw v-else :size="14" />
-          {{ processedStatus === 'loading' ? '正在重新检测…' : '检测处理后的图片' }}
+          {{ processedStatus === 'loading' ? '正在重新检测…' : copy.previewRescore }}
         </button>
         <p v-if="processedStatus === 'error'" class="subtle-note"><AlertCircle :size="13" /> 重新检测失败，可稍后重试。</p>
       </template>

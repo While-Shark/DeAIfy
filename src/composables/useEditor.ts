@@ -3,6 +3,7 @@ import { getPreset, cloneParams } from '../engine/presets';
 import { inspectProvenance } from '../services/provenance';
 import type { ExportFormat, PresetId, ProcessingParams, ProvenanceResult, ScanStatus } from '../types/editor';
 import { useClassifier } from './useClassifier';
+import { useExportReview } from './useExportReview';
 import { useProcessor } from './useProcessor';
 
 const ALLOWED_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
@@ -12,6 +13,8 @@ const MAX_PIXELS = 30_000_000;
 export function useEditor() {
   const { assess } = useClassifier();
   const { render } = useProcessor();
+  const { reviewOpen, reviewStage, reviewReport, reviewError, startExportReview,
+    retryExportReview, confirmExportReview, cancelReview } = useExportReview(assess, render);
   const file = shallowRef<File | null>(null);
   const originalUrl = ref('');
   const previewUrl = ref('');
@@ -31,8 +34,6 @@ export function useEditor() {
   const scanError = ref('');
   const previewError = ref('');
   const isPreviewing = ref(false);
-  const isExporting = ref(false);
-  const exportError = ref('');
   const exportFormat = ref<ExportFormat>('image/png');
   let generation = 0;
   let previewGeneration = 0;
@@ -50,6 +51,7 @@ export function useEditor() {
 
   async function selectFile(candidate: File): Promise<void> {
     const current = ++generation;
+    cancelReview();
     ++previewGeneration;
     if (previewTimer) clearTimeout(previewTimer);
     clearObjectUrls();
@@ -165,37 +167,30 @@ export function useEditor() {
   }
 
   watch(file, schedulePreview);
-  watch(params, schedulePreview, { deep: true });
+  watch(params, () => {
+    if (reviewOpen.value) cancelReview();
+    schedulePreview();
+  }, { deep: true });
+  watch(exportFormat, () => { if (reviewOpen.value) cancelReview(); });
 
   function selectPreset(id: PresetId): void {
     presetId.value = id;
     Object.assign(params, cloneParams(getPreset(id).params));
   }
 
-  async function exportImage(): Promise<void> {
-    if (!file.value || isExporting.value) return;
-    isExporting.value = true;
-    exportError.value = '';
-    try {
-      const output = await render(file.value, { ...params }, exportFormat.value);
-      const url = URL.createObjectURL(output);
-      const extension = exportFormat.value.split('/')[1] === 'jpeg' ? 'jpg' : exportFormat.value.split('/')[1];
-      const base = file.value.name.replace(/\.[^.]+$/, '');
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = `${base}-deaify.${extension}`;
-      document.body.append(anchor);
-      anchor.click();
-      anchor.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 2000);
-    } catch (error) {
-      exportError.value = error instanceof Error ? error.message : '图片导出失败。';
-    } finally {
-      isExporting.value = false;
-    }
+  function reviewBeforeExport(): void {
+    if (!file.value) return;
+    startExportReview({
+      file: file.value,
+      params: { ...params },
+      format: exportFormat.value,
+      sourceScore: score.value,
+      sourceProvenance: provenance.value,
+    });
   }
 
   function reset(): void {
+    cancelReview();
     ++generation;
     ++previewGeneration;
     if (previewTimer) clearTimeout(previewTimer);
@@ -210,7 +205,6 @@ export function useEditor() {
     uploadError.value = '';
     scanError.value = '';
     previewError.value = '';
-    exportError.value = '';
   }
 
   onScopeDispose(() => {
@@ -223,7 +217,8 @@ export function useEditor() {
   return {
     file, filename, readableSize, originalUrl, previewUrl, dimensions, params, presetId,
     comparePercent, score, processedScore, scanStatus, processedScanStatus, downloadProgress,
-    scanPhase, provenance, uploadError, scanError, previewError, isPreviewing, isExporting,
-    exportError, exportFormat, selectFile, selectPreset, rerunAssessment, exportImage, reset,
+    scanPhase, provenance, uploadError, scanError, previewError, isPreviewing,
+    exportFormat, selectFile, selectPreset, rerunAssessment, reviewBeforeExport, reset,
+    reviewOpen, reviewStage, reviewReport, reviewError, retryExportReview, confirmExportReview, cancelReview,
   };
 }
