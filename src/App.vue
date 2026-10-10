@@ -6,14 +6,16 @@ import ScoreCard from './components/ScoreCard.vue';
 import ImageWorkspace from './components/ImageWorkspace.vue';
 import AdjustmentsPanel from './components/AdjustmentsPanel.vue';
 import ExportPanel from './components/ExportPanel.vue';
+import ExportReviewDialog from './components/ExportReviewDialog.vue';
 import { useEditor } from './composables/useEditor';
 import type { ProcessingParams } from './types/editor';
 
 const {
   file, filename, readableSize, originalUrl, previewUrl, dimensions, params, presetId,
   comparePercent, score, processedScore, scanStatus, processedScanStatus, downloadProgress,
-  scanPhase, provenance, uploadError, scanError, previewError, isPreviewing, isExporting,
-  exportError, exportFormat, selectFile, selectPreset, rerunAssessment, exportImage, reset,
+  scanPhase, provenance, uploadError, scanError, previewError, isPreviewing,
+  exportFormat, selectFile, selectPreset, rerunAssessment, reviewBeforeExport, reset,
+  reviewOpen, reviewStage, reviewReport, reviewError, retryExportReview, confirmExportReview, cancelReview,
 } = useEditor();
 
 function updateParam(key: keyof ProcessingParams, value: number): void {
@@ -44,10 +46,14 @@ function updateParam(key: keyof ProcessingParams, value: number): void {
         <div class="rail-heading">EDIT & EXPORT <span> / 02</span></div>
         <AdjustmentsPanel :has-image="!!file" :preset-id="presetId" :params="params"
           @select-preset="selectPreset" @set-param="updateParam" />
-        <ExportPanel :has-image="!!file" :exporting="isExporting" :error="exportError" :format="exportFormat"
-          @export="exportImage" @update:format="exportFormat = $event" />
+        <ExportPanel :has-image="!!file" :exporting="reviewOpen" :format="exportFormat"
+          @export="reviewBeforeExport" @update:format="exportFormat = $event" />
       </aside>
     </main>
+    <Teleport to="body">
+      <ExportReviewDialog v-if="reviewOpen" :stage="reviewStage" :report="reviewReport" :error="reviewError"
+        @close="cancelReview" @retry="retryExportReview" @confirm="confirmExportReview" />
+    </Teleport>
     <footer class="site-footer">
       <div class="footer-left"><span>DeAIfy © 2026</span><span class="footer-divider"></span><span>Designed for a more natural image.</span></div>
       <div class="footer-facts"><span><LockKeyhole :size="13" /> No image upload</span><span><Cpu :size="13" /> On-device processing</span><span><Globe2 :size="13" /> Open source</span></div>

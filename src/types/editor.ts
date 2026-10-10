@@ -53,3 +53,18 @@ export type ProcessorWorkerRequest = {
 export type ProcessorWorkerResponse =
   | { id: number; type: 'result'; blob: Blob; width: number; height: number }
   | { id: number; type: 'error'; message: string };
+
+export type ExportReviewStage = 'idle' | 'rendering' | 'assessing' | 'ready' | 'error';
+
+export interface ExportReviewReport {
+  originalScore: number | null;
+  exportedScore: number | null;
+  delta: number | null;
+  originalProvenance: ProvenanceResult;
+  exportedProvenance: ProvenanceResult;
+  originalError: string;
+  exportedError: string;
+  filename: string;
+  fileSize: number;
+  format: ExportFormat;
+}

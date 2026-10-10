@@ -15,6 +15,26 @@ DeAIfy lets you upload a JPG/PNG/WebP image, receive a **preliminary 0–100 rea
 - **Compare & export:** drag the before/after divider; export PNG, JPEG, or WebP at the original resolution.
 - **No backend or database:** works as a static site. The ML model and C2PA WASM are downloaded by the browser when needed.
 
+## Export-time verification (v0.1.1)
+
+The **Check & Export** button renders the actual, full-resolution export in the
+selected PNG/JPEG/WebP format, then automatically analyzes **those exact bytes**.
+A confirmation dialog compares the original and final image model scores and
+separately displays the C2PA credential inspection results. The delta is a
+model-output difference, **not** a calibrated change in probability or evidence
+that synthetic content became genuine photography.
+
+The confirmation download reuses the already-inspected Blob rather than
+re-encoding it. Cancel or retry to generate a new candidate. Changing image,
+parameters, or export format invalidates the pending review. If the model cannot
+score an image, the dialog reports an unavailable score and requires the user
+to explicitly confirm an incomplete review. Image rendering failures cannot be
+confirmed for download.
+
+**C2PA / SynthID:** Canvas encoding may remove or invalidate original C2PA
+claims. Absence of C2PA does not mean an image is authentic; SynthID is not
+inspected, and platform labeling remains independent of this report.
+
 ## Quick start
 
 Requirements: Node.js 22.12+ and npm.
