@@ -14,8 +14,7 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{ close: []; retry: []; confirm: [] }>();
 const dialog = ref<HTMLElement | null>(null);
-const locked = computed(() => !!props.commercial &&
-  (props.stage === 'rendering' || props.stage === 'assessing'));
+const locked = computed(() => !!props.commercial && props.stage === 'rendering');
 function closeIfAllowed(): void {
   // Closing a paid operation mid-request can discard the final Blob after a
   // successful server debit. Do not offer a misleading cancel action.
@@ -79,7 +78,9 @@ onMounted(() => dialog.value?.focus());
         <strong>{{ stage === 'rendering' ? copy.loadingTitle : copy.analyzingTitle }}</strong>
         <p>{{ stage === 'rendering' ? copy.loadingHint : copy.analyzingHint }}</p>
         <p v-if="commercial" class="review-charge-notice" role="status">
-          已确认在 VPS 处理：生成成功会占用一次免费额度或积分。请等待处理与复检完成；需要重新检测时不会重复扣费。
+          {{ stage === 'rendering'
+            ? 'VPS 正在生成文件，成功后计次。此阶段请保持弹窗开启。'
+            : 'VPS 已生成文件并计次；现在只进行本地复检，可关闭后在账户历史中限时免费下载。重新检测不会重复扣费。' }}
         </p>
         <div class="review-progress-line"><span :class="stage"></span></div>
       </div>
@@ -160,7 +161,7 @@ onMounted(() => dialog.value?.focus());
 
       <footer class="review-actions">
         <button type="button" class="review-secondary" :disabled="locked" @click="closeIfAllowed">
-          {{ commercial && stage === 'ready' ? '返回工作台（本次已计次）' : copy.cancel }}
+          {{ commercial && (stage === 'ready' || stage === 'assessing') ? '返回工作台（本次已计次）' : copy.cancel }}
         </button>
         <template v-if="stage === 'ready'">
           <button type="button" class="review-secondary" @click="emit('retry')"><RefreshCw :size="14" /> {{ copy.retry }}</button>
