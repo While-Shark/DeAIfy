@@ -20,3 +20,5 @@ jobs:
         run: npm test
       - name: Production build
         run: npm run build
+      - name: Verify protected build artifacts
+        run: npm run verify:dist
