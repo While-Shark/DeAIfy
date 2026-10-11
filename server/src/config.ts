@@ -1,6 +1,43 @@
 import { randomBytes } from 'node:crypto';
 import { isIP } from 'node:net';
 
+export type PaymentProvider = 'xunhu' | 'creem';
+export interface CreemOffer { productId: string; amountMinor: number; currency: 'USD' | 'EUR'; }
+export type CreemOffers = Record<string, CreemOffer>;
+export interface CreemConfig {
+  mode: 'test' | 'live';
+  apiKey: string;
+  webhookSecret: string;
+  offers: CreemOffers;
+}
+/** Static Creem product prices are independent of CNY promotions in the admin panel. */
+export function parseCreemOffers(value: string): CreemOffers {
+  if (!value) return {};
+  if (value.length > 12000) throw new Error('CREEM_PRODUCTS_JSON is too large');
+  let data: unknown;
+  try { data = JSON.parse(value); }
+  catch { throw new Error('Invalid CREEM_PRODUCTS_JSON'); }
+  if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Invalid CREEM_PRODUCTS_JSON');
+  const entries = Object.entries(data as Record<string, unknown>);
+  if (entries.length > 50) throw new Error('Too many Creem products');
+  const offers: CreemOffers = Object.create(null);
+  for (const [planId, raw] of entries) {
+    if (!/^[a-zA-Z0-9_-]{1,36}$/.test(planId) || !raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      throw new Error('Invalid Creem plan mapping');
+    }
+    const item = raw as Record<string, unknown>;
+    if (typeof item.productId !== 'string' || !/^prod_[a-zA-Z0-9]+$/.test(item.productId) ||
+        !Number.isSafeInteger(item.amountMinor) || (item.amountMinor as number) < 100 ||
+        (item.amountMinor as number) > 10_000_000 ||
+        (item.currency !== 'USD' && item.currency !== 'EUR')) {
+      throw new Error('Invalid Creem product, price, or currency');
+    }
+    offers[planId] = {productId: item.productId, amountMinor: item.amountMinor as number,
+      currency: item.currency};
+  }
+  return offers;
+}
+
 export interface Config {
   port: number;
   publicOrigin: string;
@@ -13,6 +50,8 @@ export interface Config {
   smtp: { host: string; port: number; user: string; password: string; from: string };
   otpSecret: string;
   paymentsEnabled: boolean;
+  paymentProvider: PaymentProvider;
+  creem: CreemConfig;
   xunhu: { appid: string; secret: string; gateway: string };
   processor: { url: string; token: string };
   resultsKey: Buffer;
@@ -82,9 +121,24 @@ export function readConfig(): Config {
     ? { rejectUnauthorized: true as const, ...(caBase64 ? { ca: Buffer.from(caBase64, 'base64').toString('utf8') } : {}) }
     : undefined;
   const paymentsEnabled = process.env.PAYMENTS_ENABLED === 'true';
-  if (paymentsEnabled && (!process.env.XUNHU_APPID || !process.env.XUNHU_SECRET ||
-      process.env.MERCHANT_APPROVED !== 'true')) {
+  const paymentProvider = process.env.PAYMENT_PROVIDER ?? 'xunhu';
+  if (paymentProvider !== 'xunhu' && paymentProvider !== 'creem') throw new Error('Invalid PAYMENT_PROVIDER');
+  const creemMode = process.env.CREEM_MODE ?? 'test';
+  if (creemMode !== 'test' && creemMode !== 'live') throw new Error('Invalid CREEM_MODE');
+  const offers = parseCreemOffers(process.env.CREEM_PRODUCTS_JSON ?? '');
+  if (paymentsEnabled && paymentProvider === 'xunhu' &&
+      (!process.env.XUNHU_APPID || !process.env.XUNHU_SECRET ||
+       process.env.MERCHANT_APPROVED !== 'true')) {
     throw new Error('Payment activation requires approved merchant and Xunhu keys');
+  }
+  if (paymentsEnabled && paymentProvider === 'creem') {
+    if (!process.env.CREEM_API_KEY || !process.env.CREEM_WEBHOOK_SECRET ||
+        Object.keys(offers).length === 0) {
+      throw new Error('Creem payment activation requires API key, webhook secret, and products');
+    }
+    if (creemMode === 'live' && process.env.MERCHANT_APPROVED !== 'true') {
+      throw new Error('Live Creem payments require an approved merchant');
+    }
   }
   const allowRecovery = process.env.RECOVERY_ENABLED === 'true';
   if ((process.env.REGISTRATION_ENABLED === 'true' || allowRecovery) &&
@@ -110,7 +164,11 @@ export function readConfig(): Config {
       from: process.env.SMTP_FROM ?? '',
     },
     otpSecret: process.env.OTP_SECRET ?? randomBytes(32).toString('hex'),
-    paymentsEnabled,
+    paymentsEnabled, paymentProvider,
+    creem: {
+      mode: creemMode, apiKey: process.env.CREEM_API_KEY ?? '',
+      webhookSecret: process.env.CREEM_WEBHOOK_SECRET ?? '', offers,
+    },
     xunhu: {
       appid: process.env.XUNHU_APPID ?? '', secret: process.env.XUNHU_SECRET ?? '',
       gateway,

@@ -108,6 +108,6 @@ export function registerAuth(app:FastifyInstance,db:Database,config:Config) {
   const user=await requireIdentity(db,req,reply);
   if(!user)return;
   return {orders:await rows(db,
-   'SELECT id,title_snapshot,price_fen,credits_snapshot,state,created_at,paid_at FROM orders WHERE user_id=? ORDER BY created_at DESC LIMIT 100',[user.id])};
+   'SELECT id,title_snapshot,price_fen,provider,provider_amount_minor,provider_currency,credits_snapshot,state,created_at,paid_at FROM orders WHERE user_id=? ORDER BY created_at DESC LIMIT 100',[user.id])};
  });
 }
