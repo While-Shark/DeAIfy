@@ -18,7 +18,12 @@ const recentLedger=ref<any[]>([]);
 const recentJobs=ref<any[]>([]);
 const submitting=ref(false);
 const recoveryRequested=ref(false);
-watch(()=>props.open,value=>{if(value)void billing.initialize();});
+watch(()=>props.open,async value=>{
+ if(!value)return;
+ await billing.initialize();
+ // Free quota resets at Beijing midnight; refresh when reopening the drawer.
+ await billing.refresh();
+});
 async function action(task:()=>Promise<unknown>,after?:()=>void) {
  submitting.value=true;formError.value='';message.value='';
  try{await task();after?.();}
@@ -80,6 +85,11 @@ function afterPayment(){void action(async()=>{
         </nav>
         <main class="commerce-content">
           <p v-if="formError" class="inline-error" role="alert">{{ formError }}</p>
+          <div v-if="billing.error.value" class="inline-error" role="status">
+            {{ billing.error.value }}
+            <button type="button" class="commerce-link"
+              @click="void billing.initialize().then(()=>billing.refresh())">重试连接</button>
+          </div>
           <p v-if="message" class="commerce-message">{{ message }}</p>
 
           <template v-if="!billing.user.value">
