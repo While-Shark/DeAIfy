@@ -14,7 +14,7 @@
 ## 前置条件
 
 1. 一台至少 2 vCPU、4 GB 内存（或使用已有 MySQL 降低资源占用）的 VPS，已安装 Docker Compose。已有 Nginx 或面板监听 443 不需要改动。
-2. 准备一个真正可用的 HTTPS API 子域名。反代 127.0.0.1:18088，设置 client_max_body_size 26m、proxy_read_timeout 65s，使用 proxy_set_header X-Forwarded-For $remote_addr 确保客户端不能伪造前置 IP。
+2. 准备一个真正可用的 HTTPS API 子域名。反代 127.0.0.1:18088，设置 client_max_body_size 26m、proxy_read_timeout 65s，使用 proxy_set_header X-Forwarded-For $remote_addr 确保客户端不能伪造前置 IP；只在查明 Nginx 到 API 的 Docker 网关地址后，配置 TRUSTED_PROXY_CIDRS 为具体可信网段（建议 /32），不要设 0.0.0.0/0。未配置时会把反向代理当作访问者，IP 限流按代理 IP 计算，需在开放注册前完成此项。
 3. 在虎皮椒后台完成签约，申请商户 APPID 和 SECRET 并确认积分、虚拟权益、退款与有效期符合协议。
 4. 配置 SMTP 邮件服务与 Cloudflare Turnstile，才能开放公众注册。管理员账号需要独立初始化。
 5. 在 Vercel 配置 VITE_COMMERCIAL_API_URL（完整 HTTPS API Origin）和 VITE_TURNSTILE_SITE_KEY（只有公钥可暴露到前端）。
@@ -24,11 +24,11 @@
 - 复制 .env.commercial.example 为 .env.commercial（此文件在 .gitignore 中，绝不能提交）。
 - 使用 openssl rand -hex 32 分别生成 RESULT_ENCRYPTION_KEY_HEX、PROCESSOR_SHARED_TOKEN（至少 32 个字符）和 OTP_SECRET。三项不可复用。
 - 设置 MYSQL_ROOT_PASSWORD、MYSQL_PASSWORD、FRONTEND_ORIGIN、API_PUBLIC_ORIGIN，以及实际 MySQL 配置。
-- 初期保持 REGISTRATION_ENABLED=false，PAYMENTS_ENABLED=false，MERCHANT_APPROVED=false。
+- 初期保持 REGISTRATION_ENABLED=false、RECOVERY_ENABLED=false、PAYMENTS_ENABLED=false、MERCHANT_APPROVED=false。
 - 执行 docker compose --env-file .env.commercial -f docker-compose.commercial.yml up -d --build。
 - 检查 docker compose -f docker-compose.commercial.yml ps 与日志，再请求本机 127.0.0.1:18088/health。
 - 管理员初始化命令 npm run bootstrap:admin 必须在 api 容器中以一次性 BOOTSTRAP_ADMIN_EMAIL 和 BOOTSTRAP_ADMIN_PASSWORD 环境变量执行，密码不少于 16 位；请使用私密的凭据注入方式，执行后立即清理。
-- MySQL schema.sql 只会在全新数据库卷第一次创建时自动运行；以后需要单独的、经审核的迁移操作，不要为重新建表删除生产卷。
+- MySQL schema.sql 只会在全新数据库卷第一次创建时自动运行；以后需要单独的、经审核的迁移操作，不要为重新建表删除生产卷。已经部署 v0.6.0 的数据库需先备份，再执行 server/sql/migrations/002-password-recovery.sql 和 003-email-code-attempts.sql（按顺序运行，每个迁移只执行一次）。
 
 ## 资金与次数
 
@@ -49,11 +49,19 @@
 - 文件格式验证、隔离解码、重新编码和频率限制是多层保护，不能保证识别全部新漏洞。需持续更新镜像和库版本、定期备份数据库并进行漏洞扫描。
 - VPS 保存的是加密的临时处理结果，不持久保留原图。旧浏览器版本里的既有本地图像算法无法被前端混淆重新变成私有资产。
 
+## 运维与发布注意
+
+- 默认 Vercel 部署没有开启商业化 API，前端仍然是原本的浏览器本地处理模式。先在隔离测试环境验证后端、数据库迁移、HTTPS 反代和邮件功能。
+- **付费导出以服务器成功生成成品为计次点**：报告中的「重新检测」只分析同一份成品，绝不会再次生成收费任务。若用户关闭已完成的报告，仍可在约 30 分钟内通过账号的最近导出免费再次下载。
+- 当支付、邮件或 API 网络异常时，前端不能代表支付机构确认付款；订单与余额以服务端已验签的账本状态为准。
+- 管理后台概览是运营参考数据，不代替支付机构结算单及正式财务对账。
+
 ## 安全注意
 
 前端使用短期 opaque Bearer 会话，保存在标签页 sessionStorage。它会受到 XSS 风险影响：坚持严格内容转义、CSP、安全依赖更新与 HTTPS。
 聚合支付遵从虎皮椒 API 1.1 官方签名规则，MD5 是支付协议要求而非我们选择的新密码算法；配合 HTTPS、定时查账、签名比较与幂等落账。
 账户密码使用 Argon2id；注册必须有邮件验证码、Turnstile 和限流。
-生产上线前需要补充密码找回、隐私政策、退款规则、消费者权益条款、支付接口实测和备份恢复演练。
+密码找回使用独立 8 位邮件验证码，最多 5 次尝试，成功后撤销原账号全部登录会话。只有 SMTP、Turnstile 与长期 OTP_SECRET 完整配置且管理员明确设置 RECOVERY_ENABLED=true 后才能启用；旧数据库必须先应用 002 迁移。
+生产上线前仍需要补充隐私政策、退款规则、消费者权益条款、支付接口实测和备份恢复演练。
 
 官方文档：https://v3.xunhupay.com/doc/api/pay.html

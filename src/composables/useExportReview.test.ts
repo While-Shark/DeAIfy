@@ -63,6 +63,53 @@ describe('export review gate', () => {
     revoke.mockRestore();
   });
 
+
+  it('rechecks a paid export without calling the expensive render step again', async () => {
+    vi.stubGlobal('document', { activeElement: null });
+    const image = new Blob(['paid-image'], { type: 'image/png' });
+    const render = vi.fn(async () => image);
+    const assess = vi.fn()
+      .mockResolvedValueOnce(71.23)
+      .mockResolvedValueOnce(72.34);
+    const analyze = vi.fn(async () => fakeQuality);
+    const scope = effectScope();
+    const gate = scope.run(() => useExportReview(assess, render, analyze))!;
+
+    gate.startExportReview(input());
+    await settled();
+    expect(gate.reviewStage.value).toBe('ready');
+    expect(gate.reviewReport.value?.exportedScore).toBe(71.23);
+    gate.retryExportReview();
+    await settled();
+
+    expect(gate.reviewStage.value).toBe('ready');
+    expect(gate.reviewReport.value?.exportedScore).toBe(72.34);
+    expect(render).toHaveBeenCalledTimes(1);
+    expect(assess).toHaveBeenCalledTimes(2);
+    expect(analyze).toHaveBeenCalledTimes(4);
+    expect(assess.mock.calls[0]![0].size).toBe(image.size);
+    expect(assess.mock.calls[1]![0].size).toBe(image.size);
+    scope.stop();
+  });
+
+  it('retries rendering only if no output file was ever created', async () => {
+    vi.stubGlobal('document', { activeElement: null });
+    const render = vi.fn().mockRejectedValueOnce(new Error('temporary VPS timeout'))
+      .mockResolvedValueOnce(new Blob(['retry-success'], { type: 'image/png' }));
+    const scope = effectScope();
+    const gate = scope.run(() => useExportReview(
+      async () => 64, render, async () => fakeQuality,
+    ))!;
+    gate.startExportReview(input());
+    await settled();
+    expect(gate.reviewStage.value).toBe('error');
+    gate.retryExportReview();
+    await settled();
+    expect(render).toHaveBeenCalledTimes(2);
+    expect(gate.reviewStage.value).toBe('ready');
+    scope.stop();
+  });
+
   it('discards an obsolete result after cancellation', async () => {
     let finish!: (blob: Blob) => void;
     const render = () => new Promise<Blob>(resolve => { finish = resolve; });

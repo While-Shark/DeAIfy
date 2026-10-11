@@ -6,6 +6,17 @@ DeAIfy is a single, lightweight Vue 3 photo studio. In the default build, images
 
 ## What it does
 
+### v0.6.1 commercial hardening
+
+- Rechecking an already generated export now **reuses the same finished image**; pressing “重新检测” no longer starts another paid VPS job.
+- In VPS mode, the export report clearly tells users that completed processing has already consumed an allowance/credit. The report cannot be closed while a paid job is being generated/analyzed; completed jobs remain available for a limited time in Account → Orders.
+- A temporary API outage no longer silently signs users out; wallet state is refreshed after failed processing.
+- The VPS handler preserves a successfully finalized encrypted result if its response/credit-balance refresh fails, instead of deleting a paid file.
+- Optional email password recovery is available behind `RECOVERY_ENABLED=false` by default. Codes are valid 10 minutes with at most five guesses; a successful reset invalidates all previous sessions. Registration OTP guessing is also limited in the database.
+- Admins get simple usage and order statistics; reverse-proxy CIDRs are explicitly configured, with no untrusted forwarded-IP headers by default.
+- **Upgrading an existing v0.6.0 MySQL database** requires `002-password-recovery.sql` and `003-email-code-attempts.sql` from `server/sql/migrations`; back up first, and never reinitialize the production database volume.
+
+
 - **AI visual screening:** one browser-side ONNX classifier, 0–100 model score with a product threshold at 60. Outputs are **not** calibrated probabilities or provenance proof.
 - **Four independent image-quality indicators:** exposure, saturation balance, texture variation, and edge intensity, plus a heuristic composite index. These are about image characteristics—not whether an image is AI-generated.
 - **Five one-click editing presets:** Natural, Portrait, Film, Documentary and Soft Light. Tune seven image parameters manually if preferred.

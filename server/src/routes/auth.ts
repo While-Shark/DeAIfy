@@ -1,15 +1,15 @@
 import { randomInt, randomUUID } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import nodemailer from 'nodemailer';
 import type { Database, Row } from '../db.js';
-import { execute, rows, tx } from '../db.js';
+import { execute, rows } from '../db.js';
 import type { Config } from '../config.js';
-import { addUser, authenticate, codeDigest, compareDigest, createSession, emailValid,
+import { authenticate, codeDigest, createSession, emailValid,
  passwordHash, passwordValid, passwordVerify, sha256 } from '../identity.js';
 import { walletStatus } from '../wallet.js';
+import { consumeRegistrationCode } from '../registration.js';
+import { sendVerificationCode } from '../email.js';
 
 interface ExistingUser extends Row {id:string;email:string;password_hash:string;role:'admin'|'user';}
-interface EmailCode extends Row {id:string;code_digest:string;}
 const throttleCode = {config:{rateLimit:{max:3,timeWindow:'1 hour'}}};
 const throttleLogin = {config:{rateLimit:{max:8,timeWindow:'15 minutes'}}};
 
@@ -32,7 +32,7 @@ export async function requireIdentity(db:Database,req:FastifyRequest,reply:Fasti
  return user;
 }
 export function registerAuth(app:FastifyInstance,db:Database,config:Config) {
- app.get('/api/auth/options',async()=>({registration:config.allowRegistration,payments:config.paymentsEnabled}));
+ app.get('/api/auth/options',async()=>({registration:config.allowRegistration,recovery:config.allowRecovery,payments:config.paymentsEnabled}));
  app.post('/api/auth/send-code',throttleCode,async(req,reply)=>{
   if(!config.allowRegistration)return reply.code(503).send({error:'REGISTRATION_DISABLED'});
   const body=obj(req.body),email=String(body.email??'').trim().toLowerCase();
@@ -48,19 +48,11 @@ export function registerAuth(app:FastifyInstance,db:Database,config:Config) {
   const code=String(randomInt(100000,1000000));
   await execute(db,'INSERT INTO email_codes(id,email,code_digest,expires_at) VALUES(?,?,?,DATE_ADD(UTC_TIMESTAMP(3),INTERVAL 10 MINUTE))',
    [randomUUID(),email,codeDigest(email,code,config.otpSecret)]);
-  const transport=nodemailer.createTransport({
-   host:config.smtp.host,port:config.smtp.port,secure:config.smtp.port===465,
-   auth:{user:config.smtp.user,pass:config.smtp.password},
-  });
-  try{
-   await transport.sendMail({
-    from:config.smtp.from||config.smtp.user,to:email,
-    subject:'DeAIfy account verification',
-    text:'Your registration code: '+code+'\nExpires in 10 minutes. Do not share it.',
-   });
+  try {
+   await sendVerificationCode(config,email,code,'registration');
   }catch{
    return reply.code(503).send({error:'EMAIL_DELIVERY_FAILED'});
-  }finally{transport.close();}
+  }
   return {sent:true};
  });
  app.post('/api/auth/register',throttleLogin,async(req,reply)=>{
@@ -70,19 +62,11 @@ export function registerAuth(app:FastifyInstance,db:Database,config:Config) {
   if(!emailValid(email)||!passwordValid(password)||typeof code!=='string'||!/^[0-9]{6}$/.test(code)) {
    return reply.code(400).send({error:'INVALID_REGISTRATION'});
   }
-  // Expensive hashing happens before locking OTP rows.
   const hash=await passwordHash(password);
-  try{
+  try {
    const userId=randomUUID();
-   await tx(db,async conn=>{
-    const [entry]=await rows<EmailCode>(conn,
-     'SELECT id,code_digest FROM email_codes WHERE email=? AND consumed=0 AND expires_at>UTC_TIMESTAMP(3) ORDER BY created_at DESC LIMIT 1 FOR UPDATE',[email]);
-    if(!entry||!compareDigest(entry.code_digest,codeDigest(email,code,config.otpSecret))){
-     throw new Error('INVALID_CODE');
-    }
-    await execute(conn,'UPDATE email_codes SET consumed=1 WHERE id=?',[entry.id]);
-    await addUser(conn,userId,email,hash);
-   });
+   const accepted=await consumeRegistrationCode(db,email,code,config.otpSecret,userId,hash);
+   if(!accepted)return reply.code(400).send({error:'INVALID_CODE_OR_EMAIL'});
    return reply.code(201).send(await createSession(db,userId));
   }catch{return reply.code(400).send({error:'INVALID_CODE_OR_EMAIL'});}
  });

@@ -1,0 +1,11 @@
+CREATE TABLE IF NOT EXISTS password_reset_codes (
+ id CHAR(36) PRIMARY KEY,
+ user_id CHAR(36) NOT NULL,
+ code_digest CHAR(64) NOT NULL,
+ attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
+ consumed BOOLEAN NOT NULL DEFAULT FALSE,
+ expires_at DATETIME(3) NOT NULL,
+ created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+ INDEX idx_reset_code_user(user_id,created_at),
+ FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;

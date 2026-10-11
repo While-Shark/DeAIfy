@@ -8,13 +8,22 @@ const wallet=ref<{credits:number;freeRemaining:number;perDay:number;day:string}|
 const plans=ref<CreditPlan[]>([]);
 const paymentEnabled=ref(false);
 const registrationEnabled=ref(false);
+const recoveryEnabled=ref(false);
 const busy=ref(false);
 const error=ref('');
-let started=false;
+let catalogReady=false;
+let initialization: Promise<void> | null = null;
+class ApiError extends Error {
+ constructor(readonly status: number, code: string) { super(code); }
+}
 const jobKeys=new Map<string,string>();
 export interface CreditPlan {
  id:string;title:string;priceFen:number;originalPriceFen:number;
  discountBps:number;credits:number;bonusCredits:number;credited:number;
+}
+export interface AdminOverview {
+ users:number;activePlans:number;paidOrders:number;pendingOrders:number;refundedOrders:number;
+ paidOrderValueFen:number;completed24h:number;reversed24h:number;free24h:number;credits24h:number;
 }
 export interface AdminPlan {
  id:string;title:string;base_price_fen:number;discount_bps:number;
@@ -28,7 +37,7 @@ async function call(path:string,init:RequestInit={}):Promise<any> {
  if(init.body && !(init.body instanceof FormData))headers.set('Content-Type','application/json');
  const response=await fetch(apiBase+path,{...init,headers,cache:'no-store'});
  const data=await response.json().catch(()=>({error:'INVALID_API_RESPONSE'}));
- if(!response.ok)throw new Error(String(data.error??'API_ERROR'));
+ if(!response.ok)throw new ApiError(response.status,String(data.error??'API_ERROR'));
  return data;
 }
 async function refresh() {
@@ -37,23 +46,37 @@ async function refresh() {
   const data=await call('/api/auth/me');
   user.value=data.user;
   wallet.value=data.wallet;
- }catch{
-  token.value='';
-  sessionStorage.removeItem('deaify-auth');
-  user.value=null;wallet.value=null;
+  error.value='';
+ }catch(failure){
+  // A temporary VPS outage is not an invalid login. Only a definitive 401
+  // expires the local session; retain the token so refresh can be retried.
+  if(failure instanceof ApiError && failure.status===401){
+   token.value='';
+   sessionStorage.removeItem('deaify-auth');
+   user.value=null;wallet.value=null;
+  }else{
+   error.value='账号服务暂不可用，请稍后重试。';
+  }
  }
 }
-async function initialize() {
- if(started||!apiBase)return;
- started=true;
+function initialize(): Promise<void> {
+ if(!apiBase || catalogReady)return Promise.resolve();
+ if(initialization)return initialization;
  token.value=sessionStorage.getItem('deaify-auth')??'';
- try{
-  const [catalog,options]=await Promise.all([call('/api/plans'),call('/api/auth/options')]);
-  plans.value=catalog.plans??[];
-  paymentEnabled.value=Boolean(options.payments);
-  registrationEnabled.value=Boolean(options.registration);
- }catch(e){error.value=e instanceof Error?e.message:'服务暂不可用';}
- await refresh();
+ initialization=(async()=>{
+  try{
+   const [catalog,options]=await Promise.all([call('/api/plans'),call('/api/auth/options')]);
+   plans.value=catalog.plans??[];
+   paymentEnabled.value=Boolean(options.payments);
+   registrationEnabled.value=Boolean(options.registration);
+   recoveryEnabled.value=Boolean(options.recovery);
+   catalogReady=true;
+  }catch{
+   error.value='套餐服务暂不可用，可稍后重新打开账户面板重试。';
+  }
+  await refresh();
+ })().finally(()=>{initialization=null;});
+ return initialization;
 }
 async function login(email:string,password:string) {
  busy.value=true;error.value='';
@@ -75,6 +98,16 @@ async function register(email:string,password:string,code:string) {
 }
 async function sendCode(email:string,turnstileToken:string) {
  return call('/api/auth/send-code',{method:'POST',body:JSON.stringify({email,turnstileToken})});
+}
+async function requestRecovery(email: string, turnstileToken: string): Promise<void> {
+ await call('/api/auth/recovery/request',{
+  method:'POST',body:JSON.stringify({email,turnstileToken}),
+ });
+}
+async function confirmRecovery(email: string, code: string, newPassword: string): Promise<void> {
+ await call('/api/auth/recovery/confirm',{
+  method:'POST',body:JSON.stringify({email,code,newPassword}),
+ });
 }
 async function logout() {
  try{await call('/api/auth/logout',{method:'POST'});}catch{/* Local logout always revokes the client token. */}
@@ -106,8 +139,10 @@ async function saveAdminPlan(plan:Record<string,unknown>,id?:string){
   method:id?'PUT':'POST',body:JSON.stringify(plan),
  });
 }
+async function getAdminOverview():Promise<AdminOverview>{return call('/api/admin/overview');}
 async function getAdminOrders(){return (await call('/api/admin/orders')).orders;}
 async function getAdminUsers(){return (await call('/api/admin/users')).users;}
+async function getAdminAudit(){return (await call('/api/admin/audit')).events;}
 /** The server reserves exactly one allowance/credit, creates a 30-minute encrypted result and returns it. */
 async function process(file:Blob,params:ProcessingParams,format:ExportFormat):Promise<Blob>{
  if(!user.value)throw new Error('请先登录，再使用 VPS 完整分辨率导出');
@@ -133,7 +168,11 @@ async function process(file:Blob,params:ProcessingParams,format:ExportFormat):Pr
   created=await call('/api/process',{method:'POST',headers:{'Idempotency-Key':key},body:form});
  }catch(err) {
   const message=err instanceof Error?err.message:'PROCESSING_FAILED';
-  if(['PROCESSING_FAILED_AND_QUOTA_REFUNDED','INVALID_IMAGE_OR_PARAMS','JOB_REVERSED'].includes(message))jobKeys.delete(fingerprintHex);
+  if(['PROCESSING_FAILED_AND_QUOTA_REFUNDED','INVALID_IMAGE_OR_PARAMS',
+      'JOB_REVERSED','RESULT_EXPIRED'].includes(message))jobKeys.delete(fingerprintHex);
+  // A rejected or ambiguous job may already have adjusted the wallet in the
+  // background. Refreshing is best-effort and must not conceal the original error.
+  await refresh().catch(()=>{});
   throw err;
  }
  if(created.wallet)wallet.value=created.wallet;
@@ -142,6 +181,7 @@ async function process(file:Blob,params:ProcessingParams,format:ExportFormat):Pr
  });
  if(!response.ok) {
   if(response.status===404||response.status===410)jobKeys.delete(fingerprintHex);
+  await refresh().catch(()=>{});
   throw new Error('处理成功但当前文件已过期或下载失败。请查看账户历史；过期重做可能重新计次。');
  }
  const result=await response.blob();
@@ -152,8 +192,8 @@ async function process(file:Blob,params:ProcessingParams,format:ExportFormat):Pr
 }
 export function useCommerce() {
  return {
-  enabled:!!apiBase,user,wallet,plans,paymentEnabled,registrationEnabled,busy,error,
-  authenticated:computed(()=>!!user.value),initialize,refresh,login,register,sendCode,
-  logout,checkout,orders,ledger,jobs,downloadJob,getAdminPlans,saveAdminPlan,getAdminOrders,getAdminUsers,process,
+  enabled:!!apiBase,user,wallet,plans,paymentEnabled,registrationEnabled,recoveryEnabled,busy,error,
+  authenticated:computed(()=>!!user.value),initialize,refresh,login,register,sendCode,requestRecovery,confirmRecovery,
+  logout,checkout,orders,ledger,jobs,downloadJob,getAdminPlans,saveAdminPlan,getAdminOverview,getAdminOrders,getAdminUsers,getAdminAudit,process,
  };
 }
