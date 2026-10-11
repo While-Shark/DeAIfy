@@ -6,6 +6,8 @@ import { execute, rows } from '../src/db.js';
 import { addUser } from '../src/identity.js';
 import { createPendingOrder, applyXunhuNotification } from '../src/orders.js';
 import { signXunhu } from '../src/payments/xunhu.js';
+import { createSession, passwordHash, passwordVerify } from '../src/identity.js';
+import { applyRecovery, prepareRecovery } from '../src/recovery.js';
 import { reserve, reverse, walletStatus } from '../src/wallet.js';
 
 let db: Pool;
@@ -61,4 +63,36 @@ mysqlTest('real MySQL transaction and replay protection',()=>{
   await expect(applyXunhuNotification(db,{...data,total_fee:'99.90',hash:signXunhu({...data,total_fee:'99.90'},secret)},'merchant1',secret))
    .rejects.toThrow('Order / price mismatch');
  });
+ it('recovers a password with an 8-digit code and revokes every old session',async()=>{
+  const userId=await createUser();
+  const email=userId+'@example.test',code='24681357';
+  const otpSecret='test-reset-secret-long-enough-for-ci-only';
+  expect(await prepareRecovery(db,email,code,otpSecret)).toBe(true);
+  expect(await prepareRecovery(db,email,code,otpSecret)).toBe(false);
+  const oldSession=await createSession(db,userId);
+  expect(oldSession.token).toHaveLength(64);
+  const newHash=await passwordHash('new-long-password-for-ci-2026');
+  expect(await applyRecovery(db,email,'11111111',newHash,otpSecret)).toBe(false);
+  expect(await applyRecovery(db,email,code,newHash,otpSecret)).toBe(true);
+  const [user]=await rows(db,'SELECT password_hash FROM users WHERE id=?',[userId]);
+  expect(await passwordVerify(user!.password_hash,newHash)).toBe(false);
+  expect(await passwordVerify(user!.password_hash,'new-long-password-for-ci-2026')).toBe(true);
+  const sessions=await rows(db,'SELECT token_hash FROM sessions WHERE user_id=?',[userId]);
+  expect(sessions).toHaveLength(0);
+  expect(await applyRecovery(db,email,code,newHash,otpSecret)).toBe(false);
+ });
+
+ it('blocks guessed reset codes after five failures and disabled accounts',async()=>{
+  const userId=await createUser();
+  const email=userId+'@example.test',otpSecret='another-long-reset-secret-for-ci';
+  expect(await prepareRecovery(db,email,'99991111',otpSecret)).toBe(true);
+  const hash=await passwordHash('new-account-password-1234');
+  for(let i=0;i<5;i++){
+   expect(await applyRecovery(db,email,'00000000',hash,otpSecret)).toBe(false);
+  }
+  expect(await applyRecovery(db,email,'99991111',hash,otpSecret)).toBe(false);
+  await execute(db,'UPDATE users SET is_disabled=1 WHERE id=?',[userId]);
+  expect(await prepareRecovery(db,email,'22223333',otpSecret)).toBe(false);
+ });
+
 });
