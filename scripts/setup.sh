@@ -49,10 +49,9 @@ configure_database() {
   case "$choice" in 1) CFG[MYSQL_MODE]=bundled;; 2) CFG[MYSQL_MODE]=external;;
     *) error '数据库方式请选择 1 或 2。';; esac
   if [[ -n "${ORIGINAL_DB_MODE:-}" && "$ORIGINAL_DB_MODE" != "${CFG[MYSQL_MODE]}" ]]; then
-    warn "数据库从 $ORIGINAL_DB_MODE 切换到 ${CFG[MYSQL_MODE]}；不会自动迁移旧数据，也不会清除旧数据卷。"
-    confirm '确定已安排数据迁移，并继续切换数据库？' N || error '已取消数据库切换。'
-    # Never silently reuse the old database endpoint/credentials after a mode switch.
-    unset 'CFG[MYSQL_PASSWORD]' 'CFG[MYSQL_HOST]' 'CFG[MYSQL_PORT]'
+    # Switching endpoints while retaining the old database volume can strand
+    # existing credentials or make user/order data appear to vanish.
+    error "当前实例已经使用 $ORIGINAL_DB_MODE。请先完成数据迁移与备份，再在新的部署目录配置 ${CFG[MYSQL_MODE]}；不能直接覆盖现有数据库模式。"
   fi
   ask 'MySQL 数据库名（已有 MySQL 需提前创建专用数据库）' "${CFG[MYSQL_DATABASE]:-deaify}"
   validate_identifier "$REPLY" '数据库名'; CFG[MYSQL_DATABASE]="$REPLY"
