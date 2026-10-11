@@ -79,6 +79,12 @@ load_env
 if grep -q "pa's\$word" "$TEMP_DIR/external.log"; then fail 'DB password leaked'; fi
 if grep -q "se'cret\$very" "$TEMP_DIR/external.log"; then fail 'Merchant secret leaked'; fi
 
+# Compose must parse generated credentials with apostrophes and dollar signs.
+# No Docker is needed for --configure-only; this check runs only when available.
+if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+  docker compose --env-file "$ENV_FILE" -f "$PROJECT_ROOT/docker-compose.commercial.yml" config --quiet     || fail 'Compose could not parse generated external-MySQL dotenv credentials'
+fi
+
 # Invalid origins must fail BEFORE overwriting any existing secrets or files.
 cp "$ENV_FILE" "$TEMP_DIR/expected.env"
 set +e
