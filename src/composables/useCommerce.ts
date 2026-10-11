@@ -8,6 +8,7 @@ const wallet=ref<{credits:number;freeRemaining:number;perDay:number;day:string}|
 const plans=ref<CreditPlan[]>([]);
 const paymentEnabled=ref(false);
 const registrationEnabled=ref(false);
+const recoveryEnabled=ref(false);
 const busy=ref(false);
 const error=ref('');
 let catalogReady=false;
@@ -64,6 +65,7 @@ function initialize(): Promise<void> {
    plans.value=catalog.plans??[];
    paymentEnabled.value=Boolean(options.payments);
    registrationEnabled.value=Boolean(options.registration);
+   recoveryEnabled.value=Boolean(options.recovery);
    catalogReady=true;
   }catch{
    error.value='套餐服务暂不可用，可稍后重新打开账户面板重试。';
@@ -92,6 +94,16 @@ async function register(email:string,password:string,code:string) {
 }
 async function sendCode(email:string,turnstileToken:string) {
  return call('/api/auth/send-code',{method:'POST',body:JSON.stringify({email,turnstileToken})});
+}
+async function requestRecovery(email: string, turnstileToken: string): Promise<void> {
+ await call('/api/auth/recovery/request',{
+  method:'POST',body:JSON.stringify({email,turnstileToken}),
+ });
+}
+async function confirmRecovery(email: string, code: string, newPassword: string): Promise<void> {
+ await call('/api/auth/recovery/confirm',{
+  method:'POST',body:JSON.stringify({email,code,newPassword}),
+ });
 }
 async function logout() {
  try{await call('/api/auth/logout',{method:'POST'});}catch{/* Local logout always revokes the client token. */}
@@ -174,8 +186,8 @@ async function process(file:Blob,params:ProcessingParams,format:ExportFormat):Pr
 }
 export function useCommerce() {
  return {
-  enabled:!!apiBase,user,wallet,plans,paymentEnabled,registrationEnabled,busy,error,
-  authenticated:computed(()=>!!user.value),initialize,refresh,login,register,sendCode,
+  enabled:!!apiBase,user,wallet,plans,paymentEnabled,registrationEnabled,recoveryEnabled,busy,error,
+  authenticated:computed(()=>!!user.value),initialize,refresh,login,register,sendCode,requestRecovery,confirmRecovery,
   logout,checkout,orders,ledger,jobs,downloadJob,getAdminPlans,saveAdminPlan,getAdminOrders,getAdminUsers,process,
  };
 }

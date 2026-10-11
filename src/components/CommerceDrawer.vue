@@ -8,7 +8,7 @@ import AdminPlans from './AdminPlans.vue';
 const props=defineProps<{open:boolean}>();
 const emit=defineEmits<{close:[]}>();
 const billing=useCommerce();
-type Section='account'|'register'|'plans'|'orders'|'admin';
+type Section='account'|'register'|'recover'|'plans'|'orders'|'admin';
 const section=ref<Section>('account');
 const email=ref(''),password=ref(''),code=ref(''),turnstile=ref('');
 const formError=ref(''),message=ref('');
@@ -17,6 +17,7 @@ const recentOrders=ref<any[]>([]);
 const recentLedger=ref<any[]>([]);
 const recentJobs=ref<any[]>([]);
 const submitting=ref(false);
+const recoveryRequested=ref(false);
 watch(()=>props.open,value=>{if(value)void billing.initialize();});
 async function action(task:()=>Promise<unknown>,after?:()=>void) {
  submitting.value=true;formError.value='';message.value='';
@@ -31,6 +32,16 @@ function register(){void action(()=>billing.register(email.value,password.value,
 function sendCode(){void action(async()=>{
  await billing.sendCode(email.value,turnstile.value);
  message.value='验证码已发送，请查收邮件（有效期 10 分钟）。';
+});}
+function requestReset(){void action(async()=>{
+ await billing.requestRecovery(email.value,turnstile.value);
+ recoveryRequested.value=true;
+ message.value='如果该邮箱已注册，验证码将发送至该邮箱（有效期 10 分钟）。';
+});}
+function finishReset(){void action(async()=>{
+ await billing.confirmRecovery(email.value,code.value,password.value);
+ password.value='';code.value='';recoveryRequested.value=false;section.value='account';
+ message.value='密码已更新，请重新登录。所有之前的登录会话已失效。';
 });}
 function purchase(planId:string){void action(async()=>{
  const response=await billing.checkout(planId);
@@ -71,6 +82,30 @@ function afterPayment(){void action(async()=>{
           <p v-if="message" class="commerce-message">{{ message }}</p>
 
           <template v-if="!billing.user.value">
+            <template v-if="section==='recover'">
+              <h3>找回账号密码</h3>
+              <p class="commerce-help">通过邮箱验证身份。所有旧登录会话会在重置成功后立即失效。</p>
+              <label class="commerce-field">电子邮箱
+                <input v-model.trim="email" type="email" autocomplete="email" placeholder="you@example.com"/>
+              </label>
+              <template v-if="!recoveryRequested">
+                <TurnstileChallenge @token="turnstile=$event"/>
+                <button type="button" class="commerce-primary" :disabled="submitting||!turnstile" @click="requestReset">
+                  发送重置验证码
+                </button>
+              </template>
+              <template v-else>
+                <label class="commerce-field">8 位验证码
+                  <input v-model.trim="code" inputmode="numeric" maxlength="8" autocomplete="one-time-code" placeholder="00000000"/>
+                </label>
+                <label class="commerce-field">新密码（12–128 位）
+                  <input v-model="password" type="password" autocomplete="new-password" placeholder="设置新密码"/>
+                </label>
+                <button type="button" class="commerce-primary" :disabled="submitting" @click="finishReset">重置密码</button>
+              </template>
+              <button type="button" class="commerce-link" @click="section='account'">返回登录</button>
+            </template>
+            <template v-else>
             <h3>{{ section==='register'?'创建账户':'账号登录' }}</h3>
             <label class="commerce-field">电子邮箱 <input v-model.trim="email" type="email" autocomplete="email" placeholder="you@example.com"/></label>
             <label class="commerce-field">密码 <input v-model="password" type="password" :autocomplete="section==='register'?'new-password':'current-password'" placeholder="至少 12 位"/></label>
@@ -87,6 +122,9 @@ function afterPayment(){void action(async()=>{
               <button type="button" class="commerce-primary" :disabled="submitting" @click="login">登录</button>
               <button v-if="billing.registrationEnabled.value" type="button" class="commerce-link" @click="section='register'">注册新账号</button>
               <p v-else class="commerce-help">公开注册尚未启用，请等待管理员配置邮件验证和安全校验。</p>
+              <button v-if="billing.recoveryEnabled.value" type="button" class="commerce-link"
+                @click="section='recover';recoveryRequested=false;code=''">忘记密码？</button>
+            </template>
             </template>
           </template>
 
