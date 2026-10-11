@@ -24,11 +24,11 @@
 - 复制 .env.commercial.example 为 .env.commercial（此文件在 .gitignore 中，绝不能提交）。
 - 使用 openssl rand -hex 32 分别生成 RESULT_ENCRYPTION_KEY_HEX、PROCESSOR_SHARED_TOKEN（至少 32 个字符）和 OTP_SECRET。三项不可复用。
 - 设置 MYSQL_ROOT_PASSWORD、MYSQL_PASSWORD、FRONTEND_ORIGIN、API_PUBLIC_ORIGIN，以及实际 MySQL 配置。
-- 初期保持 REGISTRATION_ENABLED=false，PAYMENTS_ENABLED=false，MERCHANT_APPROVED=false。
+- 初期保持 REGISTRATION_ENABLED=false、RECOVERY_ENABLED=false、PAYMENTS_ENABLED=false、MERCHANT_APPROVED=false。
 - 执行 docker compose --env-file .env.commercial -f docker-compose.commercial.yml up -d --build。
 - 检查 docker compose -f docker-compose.commercial.yml ps 与日志，再请求本机 127.0.0.1:18088/health。
 - 管理员初始化命令 npm run bootstrap:admin 必须在 api 容器中以一次性 BOOTSTRAP_ADMIN_EMAIL 和 BOOTSTRAP_ADMIN_PASSWORD 环境变量执行，密码不少于 16 位；请使用私密的凭据注入方式，执行后立即清理。
-- MySQL schema.sql 只会在全新数据库卷第一次创建时自动运行；以后需要单独的、经审核的迁移操作，不要为重新建表删除生产卷。
+- MySQL schema.sql 只会在全新数据库卷第一次创建时自动运行；以后需要单独的、经审核的迁移操作，不要为重新建表删除生产卷。已经部署 v0.6.0 的数据库需先备份，再执行 server/sql/migrations/002-password-recovery.sql。
 
 ## 资金与次数
 
@@ -54,6 +54,7 @@
 前端使用短期 opaque Bearer 会话，保存在标签页 sessionStorage。它会受到 XSS 风险影响：坚持严格内容转义、CSP、安全依赖更新与 HTTPS。
 聚合支付遵从虎皮椒 API 1.1 官方签名规则，MD5 是支付协议要求而非我们选择的新密码算法；配合 HTTPS、定时查账、签名比较与幂等落账。
 账户密码使用 Argon2id；注册必须有邮件验证码、Turnstile 和限流。
-生产上线前需要补充密码找回、隐私政策、退款规则、消费者权益条款、支付接口实测和备份恢复演练。
+密码找回使用独立 8 位邮件验证码，最多 5 次尝试，成功后撤销原账号全部登录会话。只有 SMTP、Turnstile 与长期 OTP_SECRET 完整配置且管理员明确设置 RECOVERY_ENABLED=true 后才能启用；旧数据库必须先应用 002 迁移。
+生产上线前仍需要补充隐私政策、退款规则、消费者权益条款、支付接口实测和备份恢复演练。
 
 官方文档：https://v3.xunhupay.com/doc/api/pay.html

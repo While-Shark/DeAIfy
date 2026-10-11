@@ -20,6 +20,17 @@ CREATE TABLE IF NOT EXISTS email_codes (
  consumed BOOLEAN NOT NULL DEFAULT FALSE, created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
  INDEX idx_email_codes(email,created_at)
 ) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS password_reset_codes (
+ id CHAR(36) PRIMARY KEY,
+ user_id CHAR(36) NOT NULL,
+ code_digest CHAR(64) NOT NULL,
+ attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
+ consumed BOOLEAN NOT NULL DEFAULT FALSE,
+ expires_at DATETIME(3) NOT NULL,
+ created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+ INDEX idx_reset_code_user(user_id,created_at),
+ FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
 CREATE TABLE IF NOT EXISTS daily_quota (
  user_id CHAR(36) NOT NULL,quota_date DATE NOT NULL,used SMALLINT UNSIGNED NOT NULL DEFAULT 0,
  PRIMARY KEY(user_id,quota_date),FOREIGN KEY(user_id) REFERENCES users(id)

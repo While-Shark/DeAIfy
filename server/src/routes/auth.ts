@@ -1,12 +1,12 @@
 import { randomInt, randomUUID } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import nodemailer from 'nodemailer';
 import type { Database, Row } from '../db.js';
 import { execute, rows, tx } from '../db.js';
 import type { Config } from '../config.js';
 import { addUser, authenticate, codeDigest, compareDigest, createSession, emailValid,
  passwordHash, passwordValid, passwordVerify, sha256 } from '../identity.js';
 import { walletStatus } from '../wallet.js';
+import { sendVerificationCode } from '../email.js';
 
 interface ExistingUser extends Row {id:string;email:string;password_hash:string;role:'admin'|'user';}
 interface EmailCode extends Row {id:string;code_digest:string;}
@@ -32,7 +32,7 @@ export async function requireIdentity(db:Database,req:FastifyRequest,reply:Fasti
  return user;
 }
 export function registerAuth(app:FastifyInstance,db:Database,config:Config) {
- app.get('/api/auth/options',async()=>({registration:config.allowRegistration,payments:config.paymentsEnabled}));
+ app.get('/api/auth/options',async()=>({registration:config.allowRegistration,recovery:config.allowRecovery,payments:config.paymentsEnabled}));
  app.post('/api/auth/send-code',throttleCode,async(req,reply)=>{
   if(!config.allowRegistration)return reply.code(503).send({error:'REGISTRATION_DISABLED'});
   const body=obj(req.body),email=String(body.email??'').trim().toLowerCase();
@@ -48,19 +48,11 @@ export function registerAuth(app:FastifyInstance,db:Database,config:Config) {
   const code=String(randomInt(100000,1000000));
   await execute(db,'INSERT INTO email_codes(id,email,code_digest,expires_at) VALUES(?,?,?,DATE_ADD(UTC_TIMESTAMP(3),INTERVAL 10 MINUTE))',
    [randomUUID(),email,codeDigest(email,code,config.otpSecret)]);
-  const transport=nodemailer.createTransport({
-   host:config.smtp.host,port:config.smtp.port,secure:config.smtp.port===465,
-   auth:{user:config.smtp.user,pass:config.smtp.password},
-  });
-  try{
-   await transport.sendMail({
-    from:config.smtp.from||config.smtp.user,to:email,
-    subject:'DeAIfy account verification',
-    text:'Your registration code: '+code+'\nExpires in 10 minutes. Do not share it.',
-   });
+  try {
+   await sendVerificationCode(config,email,code,'registration');
   }catch{
    return reply.code(503).send({error:'EMAIL_DELIVERY_FAILED'});
-  }finally{transport.close();}
+  }
   return {sent:true};
  });
  app.post('/api/auth/register',throttleLogin,async(req,reply)=>{

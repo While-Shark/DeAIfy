@@ -4,6 +4,7 @@ import rateLimit from '@fastify/rate-limit';
 import { readConfig } from './config.js';
 import { openDb } from './db.js';
 import { registerAuth } from './routes/auth.js';
+import { registerRecovery } from './routes/recovery.js';
 import { registerAdmin } from './routes/admin.js';
 import { registerBilling } from './routes/billing.js';
 import { registerProcessing } from './routes/processing.js';
@@ -27,6 +28,7 @@ app.addHook('onSend',async(_req,reply,payload)=>{
 });
 app.get('/health',async()=>({ok:true,service:'deaify-api'}));
 registerAuth(app,db,config);
+registerRecovery(app,db,config);
 registerBilling(app,db,config);
 registerAdmin(app,db,config);
 await registerProcessing(app,db,config);

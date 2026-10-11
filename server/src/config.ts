@@ -7,6 +7,7 @@ export interface Config {
   mysql: { host: string; port: number; user: string; password: string; database: string };
   sessionHours: number;
   allowRegistration: boolean;
+  allowRecovery: boolean;
   turnstileSecret: string;
   smtp: { host: string; port: number; user: string; password: string; from: string };
   otpSecret: string;
@@ -56,7 +57,8 @@ export function readConfig(): Config {
       process.env.MERCHANT_APPROVED !== 'true')) {
     throw new Error('Payment activation requires approved merchant and Xunhu keys');
   }
-  if (process.env.REGISTRATION_ENABLED === 'true' &&
+  const allowRecovery = process.env.RECOVERY_ENABLED === 'true';
+  if ((process.env.REGISTRATION_ENABLED === 'true' || allowRecovery) &&
       (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASSWORD ||
        !process.env.TURNSTILE_SECRET || !process.env.OTP_SECRET || process.env.OTP_SECRET.length < 32)) {
     throw new Error('Registration requires SMTP, Turnstile and a long OTP secret');
@@ -71,6 +73,7 @@ export function readConfig(): Config {
     },
     sessionHours: 24,
     allowRegistration: process.env.REGISTRATION_ENABLED === 'true',
+    allowRecovery,
     turnstileSecret: process.env.TURNSTILE_SECRET ?? '',
     smtp: {
       host: process.env.SMTP_HOST ?? '', port: positiveInt('SMTP_PORT', 465),
