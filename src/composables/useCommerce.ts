@@ -7,6 +7,7 @@ const user=ref<{id:string;email:string;role:'user'|'admin'}|null>(null);
 const wallet=ref<{credits:number;freeRemaining:number;perDay:number;day:string}|null>(null);
 const plans=ref<CreditPlan[]>([]);
 const paymentEnabled=ref(false);
+const paymentProvider=ref<'xunhu'|'creem'>('xunhu');
 const registrationEnabled=ref(false);
 const recoveryEnabled=ref(false);
 const busy=ref(false);
@@ -19,6 +20,7 @@ class ApiError extends Error {
 const jobKeys=new Map<string,string>();
 export interface CreditPlan {
  id:string;title:string;priceFen:number;originalPriceFen:number;
+ amountMinor:number|null;currency:string|null;available:boolean;
  discountBps:number;credits:number;bonusCredits:number;credited:number;
 }
 export interface AdminOverview {
@@ -67,6 +69,7 @@ function initialize(): Promise<void> {
   try{
    const [catalog,options]=await Promise.all([call('/api/plans'),call('/api/auth/options')]);
    plans.value=catalog.plans??[];
+   paymentProvider.value=catalog.paymentProvider==='creem'?'creem':'xunhu';
    paymentEnabled.value=Boolean(options.payments);
    registrationEnabled.value=Boolean(options.registration);
    recoveryEnabled.value=Boolean(options.recovery);
@@ -192,7 +195,7 @@ async function process(file:Blob,params:ProcessingParams,format:ExportFormat):Pr
 }
 export function useCommerce() {
  return {
-  enabled:!!apiBase,user,wallet,plans,paymentEnabled,registrationEnabled,recoveryEnabled,busy,error,
+  enabled:!!apiBase,user,wallet,plans,paymentEnabled,paymentProvider,registrationEnabled,recoveryEnabled,busy,error,
   authenticated:computed(()=>!!user.value),initialize,refresh,login,register,sendCode,requestRecovery,confirmRecovery,
   logout,checkout,orders,ledger,jobs,downloadJob,getAdminPlans,saveAdminPlan,getAdminOverview,getAdminOrders,getAdminUsers,getAdminAudit,process,
  };
