@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { isIP } from 'node:net';
 
 export interface Config {
   port: number;
@@ -17,6 +18,7 @@ export interface Config {
   resultsKey: Buffer;
   outputDirectory: string;
   freePerDay: number;
+  trustedProxies: string[] | false;
 }
 export const nonempty = (key: string): string => {
   const value = process.env[key];
@@ -27,6 +29,22 @@ function positiveInt(name: string, fallback: number): number {
   const n = Number(process.env[name] ?? fallback);
   if (!Number.isSafeInteger(n) || n <= 0) throw new Error('Invalid ' + name);
   return n;
+}
+export function parseTrustedProxyCidrs(value: string): string[] | false {
+  const entries = value.split(',').map(s => s.trim()).filter(Boolean);
+  if(entries.length === 0) return false;
+  if(entries.length > 8) throw new Error('Too many trusted proxies');
+  for(const subnet of entries){
+    const parts = subnet.split('/');
+    const family = isIP(parts[0] ?? '');
+    const maxPrefix = family === 4 ? 32 : family === 6 ? 128 : -1;
+    const mask = parts.length === 2 ? Number(parts[1]) : maxPrefix;
+    if(parts.length > 2 || maxPrefix < 0 || !Number.isInteger(mask) ||
+       mask <= 0 || mask > maxPrefix) {
+      throw new Error('Invalid TRUSTED_PROXY_CIDRS entry');
+    }
+  }
+  return entries;
 }
 export function readConfig(): Config {
   const frontendOrigin = nonempty('FRONTEND_ORIGIN');
@@ -90,5 +108,6 @@ export function readConfig(): Config {
     resultsKey: Buffer.from(resultsHex, 'hex'),
     outputDirectory: process.env.RESULTS_DIRECTORY ?? '/data/results',
     freePerDay: positiveInt('FREE_USES_PER_DAY', 5),
+    trustedProxies: parseTrustedProxyCidrs(process.env.TRUSTED_PROXY_CIDRS ?? ''),
   };
 }
