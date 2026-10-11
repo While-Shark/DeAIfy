@@ -44,8 +44,12 @@ export function protectClientBundle(projectRoot: string = process.cwd()): Plugin
         seed: 2026,
       });
 
+      const protectedCode = result.getObfuscatedCode();
+      if (protectedCode === code || protectedCode.length < 64) {
+        this.error('First-party JavaScript was not changed by the obfuscator.');
+      }
       protectedCount++;
-      return { code: result.getObfuscatedCode(), map: null };
+      return { code: protectedCode, map: null };
     },
     generateBundle() {
       if (protectedCount === 0) {
