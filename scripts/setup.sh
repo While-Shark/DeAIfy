@@ -131,7 +131,12 @@ configure_security() {
 }
 
 configure_payment() {
-  log '4/5 · 虎皮椒支付配置（可跳过）'
+  log '4/5 · 支付渠道配置（可跳过）'
+  keep_default PAYMENT_PROVIDER 'xunhu'
+  keep_default CREEM_MODE 'test'
+  keep_default CREEM_API_KEY ''
+  keep_default CREEM_WEBHOOK_SECRET ''
+  keep_default CREEM_PRODUCTS_JSON ''
   keep_default XUNHU_GATEWAY 'https://api.xunhupay.com'
   keep_default PAYMENTS_ENABLED 'false'
   keep_default MERCHANT_APPROVED 'false'
@@ -139,7 +144,20 @@ configure_payment() {
     warn '检测到已有正式支付启用状态；不会在重配过程中擅自关闭或重新开启。'
     confirm '确定要维护正在提供真实收款的环境？' N || error '已取消维护，避免影响收款。'
   fi
-  if confirm '录入或更新虎皮椒商户 APPID 与 Secret？' N; then
+  ask '支付渠道：1=虎皮椒，2=Creem' "$([[ "${CFG[PAYMENT_PROVIDER]}" == creem ]] && echo 2 || echo 1)"
+  case "$REPLY" in 1) CFG[PAYMENT_PROVIDER]='xunhu';; 2) CFG[PAYMENT_PROVIDER]='creem';; *) error '请选择 1 或 2';; esac
+  if [[ "${CFG[PAYMENT_PROVIDER]}" == creem ]]; then
+    ask 'Creem 模式：test 或 live' "${CFG[CREEM_MODE]}"
+    [[ "$REPLY" == test || "$REPLY" == live ]] || error '模式必须是 test 或 live'
+    CFG[CREEM_MODE]="$REPLY"
+    if confirm '录入或更新 Creem API Key 和 Webhook Secret？' N; then
+      ask_secret 'Creem API Key' "$([[ -n "${CFG[CREEM_API_KEY]}" ]] && echo true || echo false)"
+      [[ -z "$REPLY" ]] || CFG[CREEM_API_KEY]="$REPLY"
+      ask_secret 'Creem Webhook Secret' "$([[ -n "${CFG[CREEM_WEBHOOK_SECRET]}" ]] && echo true || echo false)"
+      [[ -z "$REPLY" ]] || CFG[CREEM_WEBHOOK_SECRET]="$REPLY"
+      warn 'Creem 套餐映射须在 .env.commercial 的 CREEM_PRODUCTS_JSON 中手工配置，正式支付须单独启用。'
+    fi
+  elif confirm '录入或更新虎皮椒商户 APPID 与 Secret？' N; then
     ask '虎皮椒 APPID' "${CFG[XUNHU_APPID]-}"
     require_value "$REPLY" '虎皮椒 APPID'; CFG[XUNHU_APPID]="$REPLY"
     ask_secret '虎皮椒 APPSECRET' "$([[ -n "${CFG[XUNHU_SECRET]-}" ]] && echo true || echo false)"
