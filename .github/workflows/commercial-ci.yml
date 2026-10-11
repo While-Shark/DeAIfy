@@ -55,6 +55,20 @@ jobs:
         run: npm test
       - name: Build API and processor
         run: npm run build
+      - name: Verify schema initialization is idempotent
+        env:
+          FRONTEND_ORIGIN: https://example.test
+          API_PUBLIC_ORIGIN: https://api.example.test
+          MYSQL_HOST: 127.0.0.1
+          MYSQL_PORT: "3306"
+          MYSQL_USER: deaify_ci
+          MYSQL_PASSWORD: ci-only-db-password
+          MYSQL_DATABASE: deaify_test
+          RESULT_ENCRYPTION_KEY_HEX: "1111111111111111111111111111111111111111111111111111111111111111"
+          PROCESSOR_SHARED_TOKEN: "2222222222222222222222222222222222222222222222222222222222222222"
+        run: |
+          node dist/scripts/initDb.js
+          node dist/scripts/initDb.js
   docker-build:
     runs-on: ubuntu-latest
     steps:
