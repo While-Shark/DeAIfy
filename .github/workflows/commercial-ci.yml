@@ -10,6 +10,7 @@ on:
     paths:
       - 'server/**'
       - 'docker-compose.commercial.yml'
+      - 'scripts/**'
       - '.github/workflows/commercial-ci.yml'
 permissions:
   contents: read
@@ -69,9 +70,7 @@ jobs:
       - name: Validate bundled and external profiles
         run: |
           docker compose --env-file .env.commercial.example -f docker-compose.commercial.yml --profile bundled config --quiet
-          docker compose --env-file .env.commercial.example -f docker-compose.commercial.yml config --services | grep -q '^api
-
-          ! docker compose --env-file .env.commercial.example -f docker-compose.commercial.yml config --services | grep -q '^mysql
-
+          docker compose --env-file .env.commercial.example -f docker-compose.commercial.yml config --services | grep -qx api
+          ! docker compose --env-file .env.commercial.example -f docker-compose.commercial.yml config --services | grep -qx mysql
       - name: Build deployable image
         run: docker build --tag deaify-server:ci server
