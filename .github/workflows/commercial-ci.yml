@@ -4,6 +4,7 @@ on:
     paths:
       - 'server/**'
       - 'docker-compose.commercial.yml'
+      - 'scripts/**'
       - '.github/workflows/commercial-ci.yml'
   pull_request:
     paths:
@@ -61,5 +62,16 @@ jobs:
           persist-credentials: false
       - name: Validate Docker Compose configuration
         run: docker compose --env-file .env.commercial.example -f docker-compose.commercial.yml config --quiet
+      - name: Check interactive installer Bash syntax
+        run: bash -n scripts/setup.sh scripts/setup-lib.sh scripts/tests/setup.test.sh
+      - name: Test managed and external MySQL wizard
+        run: bash scripts/tests/setup.test.sh
+      - name: Validate bundled and external profiles
+        run: |
+          docker compose --env-file .env.commercial.example -f docker-compose.commercial.yml --profile bundled config --quiet
+          docker compose --env-file .env.commercial.example -f docker-compose.commercial.yml config --services | grep -q '^api
+
+          ! docker compose --env-file .env.commercial.example -f docker-compose.commercial.yml config --services | grep -q '^mysql
+
       - name: Build deployable image
         run: docker build --tag deaify-server:ci server

@@ -5,7 +5,7 @@ export interface Config {
   port: number;
   publicOrigin: string;
   frontendOrigin: string;
-  mysql: { host: string; port: number; user: string; password: string; database: string };
+  mysql: { host: string; port: number; user: string; password: string; database: string; ssl?: { rejectUnauthorized: true; ca?: string } };
   sessionHours: number;
   allowRegistration: boolean;
   allowRecovery: boolean;
@@ -70,6 +70,17 @@ export function readConfig(): Config {
      processorOrigin.username || processorOrigin.password || processorOrigin.pathname!=='/') {
     throw new Error('PROCESSOR_URL must remain an internal host');
   }
+  const sslMode = process.env.MYSQL_SSL_MODE ?? 'disabled';
+  if (!['disabled', 'verify'].includes(sslMode)) {
+    throw new Error('MYSQL_SSL_MODE must be disabled or verify');
+  }
+  const caBase64 = process.env.MYSQL_SSL_CA_B64 ?? '';
+  if (caBase64 && (!/^[a-zA-Z0-9+/=]+$/.test(caBase64) || caBase64.length > 100_000)) {
+    throw new Error('Invalid MYSQL_SSL_CA_B64');
+  }
+  const ssl = sslMode === 'verify'
+    ? { rejectUnauthorized: true as const, ...(caBase64 ? { ca: Buffer.from(caBase64, 'base64').toString('utf8') } : {}) }
+    : undefined;
   const paymentsEnabled = process.env.PAYMENTS_ENABLED === 'true';
   if (paymentsEnabled && (!process.env.XUNHU_APPID || !process.env.XUNHU_SECRET ||
       process.env.MERCHANT_APPROVED !== 'true')) {
@@ -87,7 +98,7 @@ export function readConfig(): Config {
     mysql: {
       host: nonempty('MYSQL_HOST'), port: positiveInt('MYSQL_PORT', 3306),
       user: nonempty('MYSQL_USER'), password: nonempty('MYSQL_PASSWORD'),
-      database: nonempty('MYSQL_DATABASE'),
+      database: nonempty('MYSQL_DATABASE'), ssl,
     },
     sessionHours: 24,
     allowRegistration: process.env.REGISTRATION_ENABLED === 'true',
