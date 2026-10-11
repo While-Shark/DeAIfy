@@ -29,6 +29,10 @@ test('obfuscated production build loads and keeps local image editing functional
   await expect(page.locator('.file-info-copy strong')).toHaveText('ci-photo.png');
   const preview = page.getByRole('img', { name: '处理后的图像预览' });
   await expect(preview).toBeVisible({ timeout: 25_000 });
+  // Presence of the compare slider means the real image Web Worker completed,
+  // not merely that Vue displayed the original fallback image.
+  await expect(page.getByRole('slider', { name: '拖动比较处理前后的图片' }))
+    .toBeVisible({ timeout: 25_000 });
 
   const filmPreset = page.getByRole('button', { name: /胶片质感/ });
   await filmPreset.click();
