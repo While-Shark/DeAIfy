@@ -6,7 +6,10 @@ import { shouldProtectChunk } from './protectionRules';
  * Browser code is inspectable by design. This only increases copying effort;
  * it is never used as a payment, entitlement, or secret-protection boundary.
  */
-export function protectClientBundle(projectRoot: string = process.cwd()): Plugin {
+export function protectClientBundle(
+  projectRoot: string = process.cwd(),
+  requireFirstPartyChunk = true,
+): Plugin {
   let protectedCount = 0;
 
   return {
@@ -52,10 +55,10 @@ export function protectClientBundle(projectRoot: string = process.cwd()): Plugin
       return { code: protectedCode, map: null };
     },
     generateBundle() {
-      if (protectedCount === 0) {
+      if (requireFirstPartyChunk && protectedCount === 0) {
         this.error('No first-party JS chunk was obfuscated. Check Vite output splitting.');
       }
-      this.info('Protected ' + protectedCount + ' first-party JS chunk(s). Third-party modules and workers were left intact.');
+      this.info('Protected ' + protectedCount + ' first-party JS chunk(s). Third-party modules and ML inference were left intact.');
     },
   };
 }
