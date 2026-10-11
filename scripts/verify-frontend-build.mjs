@@ -1,7 +1,8 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { extname, join, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const dist = new URL('../dist/', import.meta.url).pathname;
+const dist = fileURLToPath(new URL('../dist/', import.meta.url));
 if (!existsSync(dist)) throw new Error('Missing dist/: run npm run build first');
 
 function allFiles(folder) {
