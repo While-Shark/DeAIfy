@@ -22,3 +22,7 @@ jobs:
         run: npm run build
       - name: Verify protected build artifacts
         run: npm run verify:dist
+      - name: Install Chromium browser
+        run: npx playwright install --with-deps chromium
+      - name: Verify protected production UI
+        run: npx playwright test
