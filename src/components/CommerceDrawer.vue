@@ -44,6 +44,7 @@ function finishReset(){void action(async()=>{
  message.value='密码已更新，请重新登录。所有之前的登录会话已失效。';
 });}
 function purchase(planId:string){void action(async()=>{
+ checkoutLink.value='';qrLink.value='';
  const response=await billing.checkout(planId);
  checkoutLink.value=response.url??'';
  qrLink.value=response.qr??'';
@@ -154,8 +155,11 @@ function afterPayment(){void action(async()=>{
                 </button>
               </article>
             </div>
-            <a v-if="checkoutLink" :href="checkoutLink" target="_blank" rel="noopener noreferrer" class="commerce-primary">前往虎皮椒安全付款</a>
-            <a v-if="qrLink" :href="qrLink" target="_blank" rel="noopener noreferrer" class="commerce-link">查看扫码支付链接</a>
+            <a v-if="checkoutLink" :href="checkoutLink" class="commerce-primary">前往虎皮椒安全付款</a>
+            <a v-if="qrLink" :href="qrLink" class="commerce-link">查看扫码支付链接</a>
+            <p v-if="checkoutLink||qrLink" class="commerce-help">
+              付款页在当前标签打开，以保留登录会话。返回 DeAIfy 后刷新订单状态；是否到账以已验签的服务器通知为准。
+            </p>
             <button v-if="checkoutLink||qrLink" type="button" class="commerce-link" @click="afterPayment">刷新付款状态</button>
           </template>
 
