@@ -2,26 +2,28 @@ import { randomBytes } from 'node:crypto';
 import type { Database, Row } from './db.js';
 import { execute, rows, tx } from './db.js';
 import { pricing, parseAmountFen, type PlanLike } from './pricing.js';
+import type { CreemOffer } from './config.js';
 import { verifyXunhu, type XunhuParams } from './payments/xunhu.js';
 interface PlanRow extends Row, PlanLike {id:string;title:string;active:number;}
 interface OrderRow extends Row {
  id:string;user_id:string;price_fen:number;credits_snapshot:number;
- state:'pending'|'paid'|'failed'|'refunded';provider_transaction_id:string|null;
+ state:'pending'|'paid'|'failed'|'refunded';provider:'xunhu'|'creem';provider_transaction_id:string|null;
 }
 export async function plansPublic(db:Database) {
  const plans=await rows<PlanRow>(db,'SELECT * FROM plans WHERE active=1 ORDER BY sort_order ASC,title ASC');
  return plans.filter(p=>{try{pricing(p);return true;}catch{return false;}})
    .map(p=>({id:p.id,title:p.title,...pricing(p)}));
 }
-export async function createPendingOrder(db:Database,userId:string,planId:string) {
+export async function createPendingOrder(db:Database,userId:string,planId:string,offer?:CreemOffer) {
  const id=randomBytes(12).toString('hex');
  return tx(db,async conn=>{
   const [plan]=await rows<PlanRow>(conn,'SELECT * FROM plans WHERE id=? AND active=1 FOR UPDATE',[planId]);
   if(!plan)throw new Error('Plan unavailable');
   const p=pricing(plan);
   await execute(conn,
-   'INSERT INTO orders(id,user_id,plan_id,title_snapshot,original_price_fen,price_fen,credits_snapshot,discount_bps) VALUES(?,?,?,?,?,?,?,?)',
-   [id,userId,plan.id,plan.title,p.originalPriceFen,p.priceFen,p.credited,p.discountBps]);
+   'INSERT INTO orders(id,user_id,plan_id,title_snapshot,original_price_fen,price_fen,credits_snapshot,discount_bps,provider,provider_product_id,provider_amount_minor,provider_currency) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
+   [id,userId,plan.id,plan.title,p.originalPriceFen,p.priceFen,p.credited,p.discountBps,
+    offer?'creem':'xunhu',offer?.productId??null,offer?.amountMinor??p.priceFen,offer?.currency??'CNY']);
   return {id,priceFen:p.priceFen,credits:p.credited,title:plan.title};
  });
 }
@@ -40,7 +42,7 @@ export async function applyXunhuNotification(db:Database,payload:XunhuParams,app
  if(txn.length>96 || (payload.status==='OD'&&!txn))throw new Error('Invalid transaction ID');
  return tx(db,async conn=>{
   const [order]=await rows<OrderRow>(conn,'SELECT * FROM orders WHERE id=? FOR UPDATE',[payload.trade_order_id]);
-  if(!order||order.price_fen!==actualFen)throw new Error('Order / price mismatch');
+  if(!order||order.provider!=='xunhu'||order.price_fen!==actualFen)throw new Error('Order / price mismatch');
   if(order.state==='failed')throw new Error('Failed order requires reconciliation');
   if(payload.status==='OD') {
    if(order.state==='paid') {

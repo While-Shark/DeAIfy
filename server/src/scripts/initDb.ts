@@ -44,6 +44,28 @@ try {
       if ((error as { code?: string }).code !== 'ER_DUP_FIELDNAME') throw error;
     }
   }
+  // Additive columns preserve all existing Xunhu orders and their settlement history.
+  const orderMigrations: Array<[string, string]> = [
+    ['provider', "ALTER TABLE orders ADD COLUMN provider ENUM('xunhu','creem') NOT NULL DEFAULT 'xunhu'"],
+    ['provider_product_id', 'ALTER TABLE orders ADD COLUMN provider_product_id VARCHAR(96) NULL'],
+    ['provider_amount_minor', 'ALTER TABLE orders ADD COLUMN provider_amount_minor INT UNSIGNED NULL'],
+    ['provider_currency', 'ALTER TABLE orders ADD COLUMN provider_currency CHAR(3) NULL'],
+    ['provider_order_id', 'ALTER TABLE orders ADD COLUMN provider_order_id VARCHAR(96) NULL UNIQUE'],
+  ];
+  for (const [column, statement] of orderMigrations) {
+    const [found] = await connection.query<RowDataPacket[]>(
+      'SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=?',
+      ['orders', column],
+    );
+    if (found.length === 0) {
+      try {
+        await connection.query(statement);
+        console.log('Applied order migration: ' + column);
+      } catch (error) {
+        if ((error as {code?:string}).code !== 'ER_DUP_FIELDNAME') throw error;
+      }
+    }
+  }
   const [requiredTables] = await connection.query<RowDataPacket[]>(
     `SELECT TABLE_NAME FROM information_schema.TABLES
       WHERE TABLE_SCHEMA=DATABASE()
