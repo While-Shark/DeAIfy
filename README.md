@@ -6,6 +6,15 @@ DeAIfy is a single, lightweight Vue 3 photo studio. In the default build, images
 
 ## What it does
 
+### v0.6.3 frontend bundle hardening
+
+- Production JavaScript now applies **selective obfuscation and encoded string tables to DeAIfy-owned application chunks**, keeping Vue, Hugging Face/ONNX inference, C2PA and WASM out of costly or fragile transformations. Small first-party image and photo-quality Web Workers receive the same moderate protection, but the large classifier Worker is untouched. Development builds stay readable.
+- Production source maps are disabled, and CI fails if original TypeScript, Vue source, Source Maps or certain private build artifacts are found in `dist/`.
+- Public Vite environment names containing backend secrets (Xunhu credentials, MySQL passwords, processor tokens, SMTP/OTP secrets) are rejected during production compilation.
+- A headless Chromium test uploads an image and exercises a preset and parameter slider against the real production bundle.
+- **Important:** obfuscation is not encryption or a copy-proof license. All shipped browser scripts remain retrievable, and the existing public source code cannot be hidden retroactively. Credits, paid image generation, payment signatures and real secrets must stay controlled by the VPS.
+
+
 ### v0.6.2 guided VPS installation
 
 - One interactive command configures managed **or existing MySQL**, validates HTTPS origins and access credentials, and starts the VPS containers.
