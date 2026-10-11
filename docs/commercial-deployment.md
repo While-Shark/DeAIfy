@@ -28,7 +28,7 @@
 - 执行 docker compose --env-file .env.commercial -f docker-compose.commercial.yml up -d --build。
 - 检查 docker compose -f docker-compose.commercial.yml ps 与日志，再请求本机 127.0.0.1:18088/health。
 - 管理员初始化命令 npm run bootstrap:admin 必须在 api 容器中以一次性 BOOTSTRAP_ADMIN_EMAIL 和 BOOTSTRAP_ADMIN_PASSWORD 环境变量执行，密码不少于 16 位；请使用私密的凭据注入方式，执行后立即清理。
-- MySQL schema.sql 只会在全新数据库卷第一次创建时自动运行；以后需要单独的、经审核的迁移操作，不要为重新建表删除生产卷。已经部署 v0.6.0 的数据库需先备份，再执行 server/sql/migrations/002-password-recovery.sql。
+- MySQL schema.sql 只会在全新数据库卷第一次创建时自动运行；以后需要单独的、经审核的迁移操作，不要为重新建表删除生产卷。已经部署 v0.6.0 的数据库需先备份，再执行 server/sql/migrations/002-password-recovery.sql 和 003-email-code-attempts.sql（按顺序运行，每个迁移只执行一次）。
 
 ## 资金与次数
 

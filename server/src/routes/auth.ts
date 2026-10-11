@@ -1,15 +1,15 @@
 import { randomInt, randomUUID } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database, Row } from '../db.js';
-import { execute, rows, tx } from '../db.js';
+import { execute, rows } from '../db.js';
 import type { Config } from '../config.js';
-import { addUser, authenticate, codeDigest, compareDigest, createSession, emailValid,
+import { authenticate, codeDigest, createSession, emailValid,
  passwordHash, passwordValid, passwordVerify, sha256 } from '../identity.js';
 import { walletStatus } from '../wallet.js';
+import { consumeRegistrationCode } from '../registration.js';
 import { sendVerificationCode } from '../email.js';
 
 interface ExistingUser extends Row {id:string;email:string;password_hash:string;role:'admin'|'user';}
-interface EmailCode extends Row {id:string;code_digest:string;}
 const throttleCode = {config:{rateLimit:{max:3,timeWindow:'1 hour'}}};
 const throttleLogin = {config:{rateLimit:{max:8,timeWindow:'15 minutes'}}};
 
@@ -62,19 +62,11 @@ export function registerAuth(app:FastifyInstance,db:Database,config:Config) {
   if(!emailValid(email)||!passwordValid(password)||typeof code!=='string'||!/^[0-9]{6}$/.test(code)) {
    return reply.code(400).send({error:'INVALID_REGISTRATION'});
   }
-  // Expensive hashing happens before locking OTP rows.
   const hash=await passwordHash(password);
-  try{
+  try {
    const userId=randomUUID();
-   await tx(db,async conn=>{
-    const [entry]=await rows<EmailCode>(conn,
-     'SELECT id,code_digest FROM email_codes WHERE email=? AND consumed=0 AND expires_at>UTC_TIMESTAMP(3) ORDER BY created_at DESC LIMIT 1 FOR UPDATE',[email]);
-    if(!entry||!compareDigest(entry.code_digest,codeDigest(email,code,config.otpSecret))){
-     throw new Error('INVALID_CODE');
-    }
-    await execute(conn,'UPDATE email_codes SET consumed=1 WHERE id=?',[entry.id]);
-    await addUser(conn,userId,email,hash);
-   });
+   const accepted=await consumeRegistrationCode(db,email,code,config.otpSecret,userId,hash);
+   if(!accepted)return reply.code(400).send({error:'INVALID_CODE_OR_EMAIL'});
    return reply.code(201).send(await createSession(db,userId));
   }catch{return reply.code(400).send({error:'INVALID_CODE_OR_EMAIL'});}
  });
