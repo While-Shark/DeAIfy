@@ -83,7 +83,7 @@ function updateParam(key: keyof ProcessingParams, value: number): void {
     </main>
     <CommerceDrawer v-if="commerce.enabled" :open="accountOpen" @close="accountOpen=false" />
     <Teleport to="body">
-      <ExportReviewDialog v-if="reviewOpen" :stage="reviewStage" :report="reviewReport"
+      <ExportReviewDialog v-if="reviewOpen" :commercial="commerce.enabled" :stage="reviewStage" :report="reviewReport"
         :error="reviewError" @close="cancelReview"
         @retry="retryExportReview" @confirm="confirmExportReview" />
     </Teleport>

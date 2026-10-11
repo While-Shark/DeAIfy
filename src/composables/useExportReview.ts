@@ -44,16 +44,19 @@ export function useExportReview(assess: Assess, render: Render, analyze: Analyze
     returnFocus = null;
   }
 
-  async function performReview(input: ExportInput): Promise<void> {
+  async function performReview(input: ExportInput, reusePrepared = false): Promise<void> {
     const id = ++sequence;
-    preparedBlob = null;
+    // A rescan must never regenerate a completed paid image: rendering may
+    // reserve and consume a credit. Only the model/quality checks may repeat.
+    const cachedOutput = reusePrepared ? preparedBlob : null;
+    if (!cachedOutput) preparedBlob = null;
     reviewReport.value = null;
     reviewError.value = '';
     reviewOpen.value = true;
-    reviewStage.value = 'rendering';
+    reviewStage.value = cachedOutput ? 'assessing' : 'rendering';
 
     try {
-      const output = await render(input.file, { ...input.params }, input.format);
+      const output = cachedOutput ?? await render(input.file, { ...input.params }, input.format);
       if (id !== sequence) return;
       preparedBlob = output;
       reviewStage.value = 'assessing';
@@ -113,7 +116,7 @@ export function useExportReview(assess: Assess, render: Render, analyze: Analyze
 
   function retryExportReview(): void {
     if (lastInput && reviewStage.value !== 'rendering' && reviewStage.value !== 'assessing') {
-      void performReview(lastInput);
+      void performReview(lastInput, preparedBlob !== null);
     }
   }
 

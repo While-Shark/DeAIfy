@@ -7,12 +7,20 @@ import { reviewCopy as copy } from '../i18n/exportReview';
 import type { ExportReviewReport, ExportReviewStage, ProvenanceResult } from '../types/editor';
 
 const props = defineProps<{
+  commercial?: boolean;
   stage: ExportReviewStage;
   report: ExportReviewReport | null;
   error: string;
 }>();
 const emit = defineEmits<{ close: []; retry: []; confirm: [] }>();
 const dialog = ref<HTMLElement | null>(null);
+const locked = computed(() => !!props.commercial &&
+  (props.stage === 'rendering' || props.stage === 'assessing'));
+function closeIfAllowed(): void {
+  // Closing a paid operation mid-request can discard the final Blob after a
+  // successful server debit. Do not offer a misleading cancel action.
+  if (!locked.value) emit('close');
+}
 const incomplete = computed(() => !!props.report && (
   props.report.originalScore === null || props.report.exportedScore === null ||
   props.report.originalQuality === null || props.report.exportedQuality === null ||
@@ -35,7 +43,7 @@ function credentialClass(provenance: ProvenanceResult): string {
 function onKeydown(event: KeyboardEvent): void {
   if (event.key === 'Escape') {
     event.preventDefault();
-    emit('close');
+    closeIfAllowed();
     return;
   }
   if (event.key !== 'Tab' || !dialog.value) return;
@@ -55,21 +63,24 @@ onMounted(() => dialog.value?.focus());
 </script>
 
 <template>
-  <div class="review-overlay" @click.self="emit('close')">
+  <div class="review-overlay" @click.self="closeIfAllowed">
     <section ref="dialog" class="review-dialog" role="dialog" aria-modal="true" aria-labelledby="review-title" tabindex="-1" @keydown="onKeydown">
       <header class="review-header">
         <div class="review-title-group">
-          <span class="review-kicker">EXPORT VERIFICATION / LOCAL</span>
+          <span class="review-kicker">{{ commercial ? 'EXPORT VERIFICATION / VPS' : 'EXPORT VERIFICATION / LOCAL' }}</span>
           <h2 id="review-title">{{ copy.title }}</h2>
           <p>{{ copy.subtitle }}</p>
         </div>
-        <button class="review-icon-button" type="button" :aria-label="copy.close" @click="emit('close')"><X :size="19" /></button>
+        <button class="review-icon-button" type="button" :aria-label="copy.close" :disabled="locked" @click="closeIfAllowed"><X :size="19" /></button>
       </header>
 
       <div v-if="stage === 'rendering' || stage === 'assessing'" class="review-progress" aria-live="polite">
         <div class="review-loading-icon"><LoaderCircle class="spin" :size="30" /></div>
         <strong>{{ stage === 'rendering' ? copy.loadingTitle : copy.analyzingTitle }}</strong>
         <p>{{ stage === 'rendering' ? copy.loadingHint : copy.analyzingHint }}</p>
+        <p v-if="commercial" class="review-charge-notice" role="status">
+          已确认在 VPS 处理：生成成功会占用一次免费额度或积分。请等待处理与复检完成；需要重新检测时不会重复扣费。
+        </p>
         <div class="review-progress-line"><span :class="stage"></span></div>
       </div>
 
@@ -80,6 +91,9 @@ onMounted(() => dialog.value?.focus());
       </div>
 
       <div v-else-if="stage === 'ready' && report" class="review-body">
+        <p v-if="commercial" class="review-charge-notice" role="status">
+          本次 VPS 图片处理已完成并计次。重新检测只运行评分，不会再次处理或扣除积分；关闭报告后可在账户的导出记录中限时免费下载。
+        </p>
         <div class="review-output-meta">
           <FileCheck2 :size="17" />
           <div><strong>{{ report.filename }}</strong><span>{{ (report.fileSize / 1024 / 1024).toFixed(2) }} MB</span></div>
@@ -145,7 +159,9 @@ onMounted(() => dialog.value?.focus());
       </div>
 
       <footer class="review-actions">
-        <button type="button" class="review-secondary" @click="emit('close')">{{ copy.cancel }}</button>
+        <button type="button" class="review-secondary" :disabled="locked" @click="closeIfAllowed">
+          {{ commercial && stage === 'ready' ? '返回工作台（本次已计次）' : copy.cancel }}
+        </button>
         <template v-if="stage === 'ready'">
           <button type="button" class="review-secondary" @click="emit('retry')"><RefreshCw :size="14" /> {{ copy.retry }}</button>
           <button type="button" class="review-confirm" @click="emit('confirm')"><Download :size="16" />{{ incomplete ? copy.confirmIncomplete : copy.confirm }}</button>
