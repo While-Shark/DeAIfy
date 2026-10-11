@@ -24,7 +24,7 @@ export async function applyCreemEvent(db:Database,event:CreemWebhook,mode:'test'
   if(typeof id!=='string'||!/^[a-f0-9]{24}$/.test(id)||
      typeof userId!=='string'||!/^[-a-f0-9]{36}$/.test(userId)||
      checkout.request_id!==id||checkout.mode!==mode||checkout.status!=='completed'||
-     paid.status!=='paid'||paid.type!=='onetime'||checkout.units!==1)throw new Error('Creem checkout not eligible');
+     paid.status!=='paid'||paid.type!=='onetime'||(checkout.units!==undefined&&checkout.units!==1))throw new Error('Creem checkout not eligible');
   const orderId=identifier(paid.id,'ord'),product=object(checkout.product);
   const productId=identifier(product.id??paid.product,'prod');
   const amount=paid.amount,currency=paid.currency;
