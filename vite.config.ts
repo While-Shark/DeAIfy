@@ -12,7 +12,13 @@ export default defineConfig(({ command, mode }) => {
   return {
     plugins: [vue(), ...(command === 'build' && mode === 'production' ? [protectClientBundle()] : [])],
     test: { include: ['src/**/*.test.ts'] },
-    worker: { format: 'es' },
+    worker: {
+      format: 'es',
+      // Protect only our tiny image/quality Web Worker code. The large
+      // Hugging Face/ONNX classifier worker includes vendor modules and is skipped.
+      plugins: () => command === 'build' && mode === 'production'
+        ? [protectClientBundle(process.cwd(), false)] : [],
+    },
     build: {
       target: 'es2022',
       // Never expose original TypeScript or Vue source through production maps.
