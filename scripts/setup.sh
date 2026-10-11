@@ -209,7 +209,7 @@ configure() {
 
 bootstrap_admin() {
   local email pass repeat
-  confirm '需要创建一个新的后台管理员账号吗？（已有账号请选 n）' N || return 0
+  confirm '需要创建一个新的后台管理员账号吗？（已有账号请选 n）' "$([[ "${FIRST_INSTALL:-false}" == true ]] && echo Y || echo N)" || return 0
   ask '管理员邮箱'; email="$REPLY"
   [[ "$email" =~ ^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$ ]] || error '管理员邮箱格式不正确。'
   ask_secret '管理员强密码（至少 16 位）'; pass="$REPLY"
@@ -256,6 +256,8 @@ deploy() {
 main() {
   [[ -f "$ROOT/docker-compose.commercial.yml" ]] || error '必须在 DeAIfy 仓库内运行脚本。'
   if [[ "${1:-}" == "" ]]; then check_tools; fi
+  FIRST_INSTALL=true
+  [[ -f "$ENV_FILE" ]] && FIRST_INSTALL=false
   load_env
   ORIGINAL_DB_MODE="${CFG[MYSQL_MODE]-}"
   case "${1:-}" in
