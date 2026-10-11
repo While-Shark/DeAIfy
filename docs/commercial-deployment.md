@@ -19,16 +19,57 @@
 4. 配置 SMTP 邮件服务与 Cloudflare Turnstile，才能开放公众注册。管理员账号需要独立初始化。
 5. 在 Vercel 配置 VITE_COMMERCIAL_API_URL（完整 HTTPS API Origin）和 VITE_TURNSTILE_SITE_KEY（只有公钥可暴露到前端）。
 
-## 启动
+## 一键交互式安装（推荐）
 
-- 复制 .env.commercial.example 为 .env.commercial（此文件在 .gitignore 中，绝不能提交）。
-- 使用 openssl rand -hex 32 分别生成 RESULT_ENCRYPTION_KEY_HEX、PROCESSOR_SHARED_TOKEN（至少 32 个字符）和 OTP_SECRET。三项不可复用。
-- 设置 MYSQL_ROOT_PASSWORD、MYSQL_PASSWORD、FRONTEND_ORIGIN、API_PUBLIC_ORIGIN，以及实际 MySQL 配置。
-- 初期保持 REGISTRATION_ENABLED=false、RECOVERY_ENABLED=false、PAYMENTS_ENABLED=false、MERCHANT_APPROVED=false。
-- 执行 docker compose --env-file .env.commercial -f docker-compose.commercial.yml up -d --build。
-- 检查 docker compose -f docker-compose.commercial.yml ps 与日志，再请求本机 127.0.0.1:18088/health。
-- 管理员初始化命令 npm run bootstrap:admin 必须在 api 容器中以一次性 BOOTSTRAP_ADMIN_EMAIL 和 BOOTSTRAP_ADMIN_PASSWORD 环境变量执行，密码不少于 16 位；请使用私密的凭据注入方式，执行后立即清理。
-- MySQL schema.sql 只会在全新数据库卷第一次创建时自动运行；以后需要单独的、经审核的迁移操作，不要为重新建表删除生产卷。已经部署 v0.6.0 的数据库需先备份，再执行 server/sql/migrations/002-password-recovery.sql 和 003-email-code-attempts.sql（按顺序运行，每个迁移只执行一次）。
+服务器已经安装 **Docker Engine + Docker Compose V2 + curl**，且提供至少 2 vCPU / 4 GB RAM；不需要先安装 Node.js 或 MySQL。
+
+```bash
+git clone https://github.com/While-Shark/DeAIfy.git
+cd DeAIfy
+bash scripts/setup.sh
+```
+
+第一次运行会逐步询问：
+
+1. **前端和 API 的 HTTPS 域名**、VPS 本地 API 端口（默认 18088，仅绑定 127.0.0.1）。
+2. **数据库模式**：选择 `1` 使用自动创建的 MySQL 8.4，或 `2` 使用已有 MySQL（主机、端口、数据库名、用户、密码）。对于外部 MySQL 默认推荐 **TLS 服务器证书验证**，支持提供自签 CA 文件；仅完全受信任的本机网络可显式确认不使用 TLS。
+3. **可选邮箱注册**：SMTP、邮箱授权码、Cloudflare Turnstile Site Key/Secret。没有设置这些值时，公开注册与密码找回保持关闭。Site Key 需要放到 Vercel 端的 `VITE_TURNSTILE_SITE_KEY`。
+4. **可选虎皮椒商户**：填写 APPID / APPSECRET；不因录入商户密钥自动启用正式收款。完成商户审核及支付/退款回调测试后再人工批准开放。
+5. **确认保存**、生成安全随机密钥、构建镜像、校验 MySQL 连接、初始化缺失表结构、启动容器，最后可选择创建一个新管理员账号。
+
+安装脚本不会执行 `docker compose down -v`、清空表、重置管理员、覆盖原 MySQL 数据卷，也不会直接修改 Nginx 的 443 配置。重新运行会保留加密密钥、MySQL/SMTP/商户凭据，同时保存一份仅自己可读的旧配置备份。输入敏感密码时不会回显。
+
+**环境配置位置：** `.env.commercial`，文件权限为 `600`；不要提交到 Git 或分享给他人。Nginx 配置片段会自动生成到 `deploy/nginx-location.conf`，只需在宝塔/1Panel/Nginx 已启用 HTTPS 的站点内插入该片段（证书与 443 仍由原面板管理）。脚本不会自动为尚未创建的域名申请证书。
+
+在 Vercel 添加公开配置 `VITE_COMMERCIAL_API_URL=https://api.example.com`，再重新部署前端。注意该环境变量是前端构建时注入的；**不要**把 `XUNHU_SECRET`、`MYSQL_PASSWORD` 或其他后端密钥设置为 `VITE_*`。
+
+### 常用命令
+
+```bash
+# 只生成环境文件与反代片段，不启动 Docker（可提前准备配置）
+bash scripts/setup.sh --configure-only
+
+# 检查当前配置与容器运行状态（不显示密钥）
+bash scripts/setup.sh --check
+
+# 重新进入向导并部署配置变更（不清除数据库）
+bash scripts/setup.sh
+```
+
+### 已有 MySQL 的注意事项
+
+- 使用已有 MySQL 前，在该服务器创建 **专用的数据库与最小权限账号**。安装阶段需要创建/变更专用 schema 的 DDL 权限，运行期可以后续收紧权限；不要直接用 root 或共享业务库。
+- 用户填写的 MySQL 主机必须是 **从 API 容器可连接的地址**。宿主机 MySQL 可使用 `host.docker.internal`（映射 Docker `host-gateway`），不要输入 `127.0.0.1`。
+- 外网数据库必须验证 TLS 证书；使用自签 CA 时在向导中提供 PEM 文件。**不要为了图省事向公网明文开放 3306**。
+- 新安装会执行幂等的 `server/sql/schema.sql`（只新建不存在的表并插入不存在的初始套餐）。旧版 `email_codes.attempts` 字段会按实际结构自动补齐，密码找回表也自动创建。**任何升级都先备份生产数据库，并在测试环境验证**。
+- 为防止用户、订单或旧密码失联，**已有安装不允许直接从内置 MySQL 切换到外部 MySQL（反之亦然）**。请先备份并人工完成数据迁移，再使用独立部署目录启动新实例；旧持久卷不会被删除。
+- 如果数据库不可用或初始化失败，脚本会阻止继续启动 API，并提示排查 MySQL 网络、密码、证书、DDL 权限。
+
+### 费用与安全上线条件
+
+向导默认 `PAYMENTS_ENABLED=false`、`MERCHANT_APPROVED=false`。即使填写虎皮椒 APPID/SECRET，也不能直接进行真实充值。注册和找回密码若缺少安全配置则默认关闭。
+
+**生产收费之前**还需实际验证商户签约与积分业务合规、支付成功回调验签及重放、退款/冲正、邮箱验证码、安全反代、Vercel 前端跨域访问、数据库备份恢复。请不要因为安装脚本显示服务健康就直接对公众开通收款。
 
 ## 资金与次数
 

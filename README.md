@@ -6,6 +6,13 @@ DeAIfy is a single, lightweight Vue 3 photo studio. In the default build, images
 
 ## What it does
 
+### v0.6.2 guided VPS installation
+
+- One interactive command configures managed **or existing MySQL**, validates HTTPS origins and access credentials, and starts the VPS containers.
+- Optional SMTP + Turnstile registration and Xunhu merchant details can be entered without opening source files. **Paid checkout remains disabled until independently approved and tested.**
+- Configuration is private (0600), secrets are generated on first run and reused on subsequent runs, and the wizard never deletes database volumes. It also creates a starter Nginx HTTPS proxy snippet without touching an existing port 443.
+- Docker and real-MySQL CI verify repeated schema bootstrap and both database modes.
+
 ### v0.6.1 commercial hardening
 
 - Rechecking an already generated export now **reuses the same finished image**; pressing “重新检测” no longer starts another paid VPS job.
@@ -37,6 +44,18 @@ Requirements: Node.js 22.12+ and npm.
 
 Build command: `npm run build` · Output: `dist` · Framework: Vite.
 The repository is connected to Vercel; production deployments come from `master`.
+
+## One-command VPS setup (optional)
+
+On a VPS with Docker Engine and Docker Compose V2:
+
+```bash
+git clone https://github.com/While-Shark/DeAIfy.git
+cd DeAIfy
+bash scripts/setup.sh
+```
+
+The interactive installer asks for your HTTPS API origin, bundled vs. existing MySQL host/credentials, optional SMTP/Turnstile, and optional Xunhu merchant information. It generates encryption secrets, checks Compose, bootstraps the schema, starts the isolated API/processor and can initialize an admin account. Re-running keeps the existing database and secrets. **Live payments stay disabled by default**. See [step-by-step VPS setup](docs/commercial-deployment.md) and use `bash scripts/setup.sh --check` to inspect status without showing secrets.
 
 ## Commercial VPS mode (optional; not yet configured on production)
 

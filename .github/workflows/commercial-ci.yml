@@ -4,11 +4,13 @@ on:
     paths:
       - 'server/**'
       - 'docker-compose.commercial.yml'
+      - 'scripts/**'
       - '.github/workflows/commercial-ci.yml'
   pull_request:
     paths:
       - 'server/**'
       - 'docker-compose.commercial.yml'
+      - 'scripts/**'
       - '.github/workflows/commercial-ci.yml'
 permissions:
   contents: read
@@ -53,6 +55,20 @@ jobs:
         run: npm test
       - name: Build API and processor
         run: npm run build
+      - name: Verify schema initialization is idempotent
+        env:
+          FRONTEND_ORIGIN: https://example.test
+          API_PUBLIC_ORIGIN: https://api.example.test
+          MYSQL_HOST: 127.0.0.1
+          MYSQL_PORT: "3306"
+          MYSQL_USER: deaify_ci
+          MYSQL_PASSWORD: ci-only-db-password
+          MYSQL_DATABASE: deaify_test
+          RESULT_ENCRYPTION_KEY_HEX: "1111111111111111111111111111111111111111111111111111111111111111"
+          PROCESSOR_SHARED_TOKEN: "2222222222222222222222222222222222222222222222222222222222222222"
+        run: |
+          node dist/scripts/initDb.js
+          node dist/scripts/initDb.js
   docker-build:
     runs-on: ubuntu-latest
     steps:
@@ -61,5 +77,14 @@ jobs:
           persist-credentials: false
       - name: Validate Docker Compose configuration
         run: docker compose --env-file .env.commercial.example -f docker-compose.commercial.yml config --quiet
+      - name: Check interactive installer Bash syntax
+        run: bash -n scripts/setup.sh scripts/setup-lib.sh scripts/tests/setup.test.sh
+      - name: Test managed and external MySQL wizard
+        run: bash scripts/tests/setup.test.sh
+      - name: Validate bundled and external profiles
+        run: |
+          docker compose --env-file .env.commercial.example -f docker-compose.commercial.yml --profile bundled config --quiet
+          docker compose --env-file .env.commercial.example -f docker-compose.commercial.yml config --services | grep -qx api
+          ! docker compose --env-file .env.commercial.example -f docker-compose.commercial.yml config --services | grep -qx mysql
       - name: Build deployable image
         run: docker build --tag deaify-server:ci server

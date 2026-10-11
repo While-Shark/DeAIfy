@@ -7,3 +7,6 @@ coverage/
 *.log
 .idea/
 .vscode/
+
+# Generated VPS reverse-proxy configuration (contains operator hostnames)
+deploy/nginx-location.conf

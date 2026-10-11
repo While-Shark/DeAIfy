@@ -14,6 +14,7 @@ RUN npm install --omit=dev --no-audit --no-fund \
  && mkdir -p /data/results \
  && chown -R node:node /app /data/results
 COPY --from=build --chown=node:node /app/dist ./dist
+COPY --chown=node:node sql ./sql
 USER node
 EXPOSE 8080 8081
 CMD ["node","dist/index.js"]

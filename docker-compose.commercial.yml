@@ -1,10 +1,11 @@
 name: deaify-commercial
 services:
   mysql:
+    profiles: [bundled]
     image: mysql:8.4
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-external-db-not-used}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-deaify}
       MYSQL_USER: ${MYSQL_USER:-deaify}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD}
@@ -51,8 +52,10 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE:-deaify}
       MYSQL_USER: ${MYSQL_USER:-deaify}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Required}
-      MYSQL_HOST: mysql
-      MYSQL_PORT: "3306"
+      MYSQL_HOST: ${MYSQL_HOST:-mysql}
+      MYSQL_PORT: "${MYSQL_PORT:-3306}"
+      MYSQL_SSL_MODE: ${MYSQL_SSL_MODE:-disabled}
+      MYSQL_SSL_CA_B64: ${MYSQL_SSL_CA_B64:-}
       PROCESSOR_URL: http://processor:8081
       RESULTS_DIRECTORY: /data/results
     ports:
@@ -60,8 +63,9 @@ services:
     volumes:
       - result_data:/data/results
     networks: [database,processor_net,egress]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
-      mysql: {condition: service_healthy}
       processor: {condition: service_started}
     read_only: true
     tmpfs:
