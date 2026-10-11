@@ -48,10 +48,16 @@ export async function registerProcessing(app:FastifyInstance,db:Database,config:
   const jobId=reservation.jobId;
   if(reservation.existingState==='reserved')return reply.code(409).send({error:'JOB_IN_PROGRESS',jobId});
   if(reservation.existingState==='reversed')return reply.code(409).send({error:'JOB_REVERSED',jobId});
-  if(reservation.existingState==='complete')return {
-   jobId,downloadUrl:'/api/jobs/'+jobId+'/download',
-   wallet:await walletStatus(db,user.id,config.freePerDay),alreadyProcessed:true,
-  };
+  if(reservation.existingState==='complete'){
+   // The idempotency key belongs to one already-charged job. After retention
+   // expires, never pretend this old job is a new free download.
+   const existing=await jobForDownload(db,user.id,jobId);
+   if(!existing)return reply.code(410).send({error:'RESULT_EXPIRED',jobId});
+   return {
+    jobId,downloadUrl:'/api/jobs/'+jobId+'/download',
+    wallet:await walletStatus(db,user.id,config.freePerDay),alreadyProcessed:true,
+   };
+  }
   const name=safeFilename(originalName,format as ImageFormat);
   try{
    const form=new FormData();
@@ -71,15 +77,34 @@ export async function registerProcessing(app:FastifyInstance,db:Database,config:
    }
    await saveResult(config,jobId,buffer);
    await finalize(db,user.id,jobId,name,format as string,buffer.length);
+   // A status refresh failure after finalize must never destroy a paid output.
+   const currentWallet=await walletStatus(db,user.id,config.freePerDay).catch(()=>null);
    return reply.code(201).send({
     jobId,downloadUrl:'/api/jobs/'+jobId+'/download',
-    wallet:await walletStatus(db,user.id,config.freePerDay),
-    retentionMinutes:30,
+    wallet:currentWallet,retentionMinutes:30,
    });
   }catch(error){
-   await deleteResult(config,jobId);
-   await reverse(db,user.id,jobId);
-   req.log.warn({jobId},'Protected image processing failed; quota reversed');
+   // Finalization may have committed even if its client connection failed.
+   // Re-read the durable job before deciding to delete bytes or reverse funds.
+   let committed;
+   try{
+    committed=await jobForDownload(db,user.id,jobId);
+   }catch{
+    req.log.error({jobId},'Cannot resolve job state; preserving encrypted output for reconciliation');
+    return reply.code(503).send({error:'JOB_STATUS_UNKNOWN',jobId});
+   }
+   if(committed){
+    req.log.error({jobId},'Output committed; automatic debit reversal intentionally skipped');
+    return reply.code(503).send({error:'OUTPUT_READY_IN_ACCOUNT_HISTORY',jobId});
+   }
+   try{
+    await reverse(db,user.id,jobId);
+    await deleteResult(config,jobId);
+   }catch{
+    req.log.error({jobId},'Failed to reverse reservation; background reconciliation required');
+    return reply.code(503).send({error:'JOB_RECONCILIATION_REQUIRED',jobId});
+   }
+   req.log.warn({jobId},'Image rejected or processing failed; quota reversed');
    return reply.code(422).send({error:'PROCESSING_FAILED_AND_QUOTA_REFUNDED'});
   }
  });
