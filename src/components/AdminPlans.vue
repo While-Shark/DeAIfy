@@ -6,6 +6,7 @@ const api=useCommerce();
 const items=ref<AdminPlan[]>([]);
 const users=ref<any[]>([]);
 const orders=ref<any[]>([]);
+const audit=ref<any[]>([]);
 const overview=ref<AdminOverview|null>(null);
 const error=ref(''),note=ref(''),saving=ref(false);
 const blank=()=>({title:'',basePriceFen:990,discountBps:10000,
@@ -15,8 +16,8 @@ const form=ref(blank());
 async function load() {
  error.value='';
  try{
-  const [plans,u,o,summary]=await Promise.all([api.getAdminPlans(),api.getAdminUsers(),api.getAdminOrders(),api.getAdminOverview()]);
-  items.value=plans;users.value=u;orders.value=o;overview.value=summary;
+  const [plans,u,o,summary,events]=await Promise.all([api.getAdminPlans(),api.getAdminUsers(),api.getAdminOrders(),api.getAdminOverview(),api.getAdminAudit()]);
+  items.value=plans;users.value=u;orders.value=o;overview.value=summary;audit.value=events;
  }catch(e){error.value=e instanceof Error?e.message:'后台数据加载失败';}
 }
 function edit(item:AdminPlan) {
@@ -83,5 +84,12 @@ onMounted(()=>void load());
       <strong>{{ o.email }} · {{ o.state }}</strong>
       <span>¥{{ (o.price_fen/100).toFixed(2) }}</span>
     </div>
+    <details class="admin-audit">
+      <summary>最近管理操作（{{ audit.length }} 条）</summary>
+      <div v-for="(event,index) in audit" :key="index" class="commerce-history">
+        <strong>{{ event.action }} · {{ event.target_id }}</strong>
+        <span>{{ new Date(event.created_at).toLocaleString() }}</span>
+      </div>
+    </details>
   </section>
 </template>

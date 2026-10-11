@@ -142,6 +142,7 @@ async function saveAdminPlan(plan:Record<string,unknown>,id?:string){
 async function getAdminOverview():Promise<AdminOverview>{return call('/api/admin/overview');}
 async function getAdminOrders(){return (await call('/api/admin/orders')).orders;}
 async function getAdminUsers(){return (await call('/api/admin/users')).users;}
+async function getAdminAudit(){return (await call('/api/admin/audit')).events;}
 /** The server reserves exactly one allowance/credit, creates a 30-minute encrypted result and returns it. */
 async function process(file:Blob,params:ProcessingParams,format:ExportFormat):Promise<Blob>{
  if(!user.value)throw new Error('请先登录，再使用 VPS 完整分辨率导出');
@@ -193,6 +194,6 @@ export function useCommerce() {
  return {
   enabled:!!apiBase,user,wallet,plans,paymentEnabled,registrationEnabled,recoveryEnabled,busy,error,
   authenticated:computed(()=>!!user.value),initialize,refresh,login,register,sendCode,requestRecovery,confirmRecovery,
-  logout,checkout,orders,ledger,jobs,downloadJob,getAdminPlans,saveAdminPlan,getAdminOverview,getAdminOrders,getAdminUsers,process,
+  logout,checkout,orders,ledger,jobs,downloadJob,getAdminPlans,saveAdminPlan,getAdminOverview,getAdminOrders,getAdminUsers,getAdminAudit,process,
  };
 }
