@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { onMounted,ref } from 'vue';
-import { useCommerce, type AdminPlan } from '../composables/useCommerce';
+import { useCommerce, type AdminPlan, type AdminOverview } from '../composables/useCommerce';
 
 const api=useCommerce();
 const items=ref<AdminPlan[]>([]);
 const users=ref<any[]>([]);
 const orders=ref<any[]>([]);
+const overview=ref<AdminOverview|null>(null);
 const error=ref(''),note=ref(''),saving=ref(false);
 const blank=()=>({title:'',basePriceFen:990,discountBps:10000,
  credits:20,bonusCredits:0,startsAt:null as string|null,endsAt:null as string|null,
@@ -14,8 +15,8 @@ const form=ref(blank());
 async function load() {
  error.value='';
  try{
-  const [plans,u,o]=await Promise.all([api.getAdminPlans(),api.getAdminUsers(),api.getAdminOrders()]);
-  items.value=plans;users.value=u;orders.value=o;
+  const [plans,u,o,summary]=await Promise.all([api.getAdminPlans(),api.getAdminUsers(),api.getAdminOrders(),api.getAdminOverview()]);
+  items.value=plans;users.value=u;orders.value=o;overview.value=summary;
  }catch(e){error.value=e instanceof Error?e.message:'后台数据加载失败';}
 }
 function edit(item:AdminPlan) {
@@ -43,6 +44,17 @@ onMounted(()=>void load());
 <template>
   <section class="admin-plans">
     <h3>套餐、折扣和用户管理</h3>
+    <div v-if="overview" class="admin-metrics" aria-label="运营概况">
+      <div><span>累计用户</span><strong>{{ overview.users }}</strong></div>
+      <div><span>待支付订单</span><strong>{{ overview.pendingOrders }}</strong></div>
+      <div><span>24h 成功处理</span><strong>{{ overview.completed24h }}</strong></div>
+      <div><span>已支付订单金额（未结算）</span><strong>¥{{ (overview.paidOrderValueFen / 100).toFixed(2) }}</strong></div>
+    </div>
+    <p v-if="overview" class="commerce-help">
+      最近 24 小时：免费 {{ overview.free24h }} 次，积分 {{ overview.credits24h }} 次，
+      失败或冲正 {{ overview.reversed24h }} 次；已退款订单 {{ overview.refundedOrders }} 笔。
+      以上为平台账本统计，非支付机构最终结算报表。
+    </p>
     <p class="commerce-help">折扣按万分比设置：10000 为原价，9000 为 9 折。支付报价始终以服务端为准。</p>
     <p v-if="error" class="inline-error">{{ error }}</p>
     <p v-if="note" class="commerce-message">{{ note }}</p>

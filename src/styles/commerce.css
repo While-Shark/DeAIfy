@@ -54,3 +54,9 @@
 @media(max-width:520px){.commerce-overlay{padding:8px}.commerce-content{padding:14px}
  .commerce-plans,.admin-edit-grid{grid-template-columns:1fr}.commerce-balance{gap:6px}
  .commerce-balance strong{font-size:19px}.commerce-header{padding:14px}}
+
+.admin-metrics { display: grid; grid-template-columns: repeat(2,minmax(0,1fr));gap:9px;margin-bottom:16px; }
+.admin-metrics>div { display: flex;flex-direction:column;gap:7px;padding:12px;
+  border:1px solid #3d594c;border-radius:10px;background:#22362d;min-width:0; }
+.admin-metrics span {font-size:10px;color:#a3bcac;}
+.admin-metrics strong {font-size:20px;font-variant-numeric:tabular-nums;color:var(--accent);}

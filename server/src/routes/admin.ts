@@ -5,6 +5,7 @@ import type { Database, Row } from '../db.js';
 import { execute, rows, tx } from '../db.js';
 import { normalizeInt, pricing } from '../pricing.js';
 import { requireIdentity } from './auth.js';
+import { adminOverview } from '../admin/overview.js';
 
 type PlanInput = {
  title:string;base_price_fen:number;discount_bps:number;credits:number;bonus_credits:number;
@@ -44,6 +45,10 @@ async function isAdmin(db:Database,req:FastifyRequest,reply:FastifyReply){
  return user;
 }
 export function registerAdmin(app:FastifyInstance,db:Database,_config:Config) {
+ app.get('/api/admin/overview',async(req,reply)=>{
+  if(!await isAdmin(db,req,reply))return;
+  return adminOverview(db);
+ });
  app.get('/api/admin/plans',async(req,reply)=>{
   if(!await isAdmin(db,req,reply))return;
   return {plans:await rows(db,'SELECT * FROM plans ORDER BY sort_order ASC LIMIT 200')};

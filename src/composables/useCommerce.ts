@@ -21,6 +21,10 @@ export interface CreditPlan {
  id:string;title:string;priceFen:number;originalPriceFen:number;
  discountBps:number;credits:number;bonusCredits:number;credited:number;
 }
+export interface AdminOverview {
+ users:number;activePlans:number;paidOrders:number;pendingOrders:number;refundedOrders:number;
+ paidOrderValueFen:number;completed24h:number;reversed24h:number;free24h:number;credits24h:number;
+}
 export interface AdminPlan {
  id:string;title:string;base_price_fen:number;discount_bps:number;
  credits:number;bonus_credits:number;discount_starts_at:string|null;
@@ -135,6 +139,7 @@ async function saveAdminPlan(plan:Record<string,unknown>,id?:string){
   method:id?'PUT':'POST',body:JSON.stringify(plan),
  });
 }
+async function getAdminOverview():Promise<AdminOverview>{return call('/api/admin/overview');}
 async function getAdminOrders(){return (await call('/api/admin/orders')).orders;}
 async function getAdminUsers(){return (await call('/api/admin/users')).users;}
 /** The server reserves exactly one allowance/credit, creates a 30-minute encrypted result and returns it. */
@@ -188,6 +193,6 @@ export function useCommerce() {
  return {
   enabled:!!apiBase,user,wallet,plans,paymentEnabled,registrationEnabled,recoveryEnabled,busy,error,
   authenticated:computed(()=>!!user.value),initialize,refresh,login,register,sendCode,requestRecovery,confirmRecovery,
-  logout,checkout,orders,ledger,jobs,downloadJob,getAdminPlans,saveAdminPlan,getAdminOrders,getAdminUsers,process,
+  logout,checkout,orders,ledger,jobs,downloadJob,getAdminPlans,saveAdminPlan,getAdminOverview,getAdminOrders,getAdminUsers,process,
  };
 }
