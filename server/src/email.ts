@@ -9,6 +9,9 @@ export async function sendVerificationCode(
     host: config.smtp.host,
     port: config.smtp.port,
     secure: config.smtp.port === 465,
+    // Fail closed when a port-587 server cannot negotiate STARTTLS.
+    requireTLS: config.smtp.port !== 465,
+    tls: { rejectUnauthorized: true },
     auth: { user: config.smtp.user, pass: config.smtp.password },
   });
   try {
