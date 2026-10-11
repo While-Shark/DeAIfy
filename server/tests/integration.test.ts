@@ -8,6 +8,7 @@ import { createPendingOrder, applyXunhuNotification } from '../src/orders.js';
 import { signXunhu } from '../src/payments/xunhu.js';
 import { createSession, passwordHash, passwordVerify, codeDigest } from '../src/identity.js';
 import { consumeRegistrationCode } from '../src/registration.js';
+import { adminOverview } from '../src/admin/overview.js';
 import { applyRecovery, prepareRecovery } from '../src/recovery.js';
 import { reserve, reverse, walletStatus } from '../src/wallet.js';
 
@@ -117,6 +118,15 @@ mysqlTest('real MySQL transaction and replay protection',()=>{
   expect(await consumeRegistrationCode(db,email,code,secret,randomUUID(),hash)).toBe(false);
   const users=await rows(db,'SELECT id FROM users WHERE email=?',[email]);
   expect(users).toHaveLength(1);
+ });
+
+ it('offers consistent operational dashboard metrics without sensitive records',async()=>{
+  const summary=await adminOverview(db);
+  expect(summary.users).toBeGreaterThan(0);
+  expect(summary.activePlans).toBeGreaterThanOrEqual(4);
+  expect(summary.completed24h).toBe(summary.free24h+summary.credits24h);
+  expect(summary.paidOrderValueFen).toBeGreaterThanOrEqual(0);
+  expect(summary.refundedOrders).toBeGreaterThanOrEqual(0);
  });
 
 });
