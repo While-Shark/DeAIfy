@@ -6,6 +6,13 @@ DeAIfy is a single, lightweight Vue 3 photo studio. In the default build, images
 
 ## What it does
 
+### v0.6.2 guided VPS installation
+
+- One interactive command configures managed **or existing MySQL**, validates HTTPS origins and access credentials, and starts the VPS containers.
+- Optional SMTP + Turnstile registration and Xunhu merchant details can be entered without opening source files. **Paid checkout remains disabled until independently approved and tested.**
+- Configuration is private (0600), secrets are generated on first run and reused on subsequent runs, and the wizard never deletes database volumes. It also creates a starter Nginx HTTPS proxy snippet without touching an existing port 443.
+- Docker and real-MySQL CI verify repeated schema bootstrap and both database modes.
+
 ### v0.6.1 commercial hardening
 
 - Rechecking an already generated export now **reuses the same finished image**; pressing “重新检测” no longer starts another paid VPS job.
