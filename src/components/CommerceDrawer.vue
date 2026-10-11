@@ -20,7 +20,9 @@ const submitting=ref(false);
 const recoveryRequested=ref(false);
 function price(value:number|null,currency:string|null):string {
  if(value===null||!currency)return '暂不可购买';
- const symbol=currency==='CNY'?'¥':currency==='USD'?'
+ const symbol=currency==='CNY'?'CNY ':currency==='USD'?'USD ':currency==='EUR'?'EUR ':currency+' ';
+ return symbol+(value/100).toFixed(2);
+}
 watch(()=>props.open,async value=>{
  if(!value)return;
  await billing.initialize();
