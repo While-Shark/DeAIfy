@@ -38,6 +38,18 @@ Requirements: Node.js 22.12+ and npm.
 Build command: `npm run build` · Output: `dist` · Framework: Vite.
 The repository is connected to Vercel; production deployments come from `master`.
 
+## One-command VPS setup (optional)
+
+On a VPS with Docker Engine and Docker Compose V2:
+
+```bash
+git clone https://github.com/While-Shark/DeAIfy.git
+cd DeAIfy
+bash scripts/setup.sh
+```
+
+The interactive installer asks for your HTTPS API origin, bundled vs. existing MySQL host/credentials, optional SMTP/Turnstile, and optional Xunhu merchant information. It generates encryption secrets, checks Compose, bootstraps the schema, starts the isolated API/processor and can initialize an admin account. Re-running keeps the existing database and secrets. **Live payments stay disabled by default**. See [step-by-step VPS setup](docs/commercial-deployment.md) and use `bash scripts/setup.sh --check` to inspect status without showing secrets.
+
 ## Commercial VPS mode (optional; not yet configured on production)
 
 The repository now includes a Fastify + MySQL commercial backend and Docker-isolated Sharp image processor. When `VITE_COMMERCIAL_API_URL` is **not** set, the original local-only Vercel experience remains unchanged; the website does **not** collect payments.
