@@ -29,6 +29,7 @@ export function registerBilling(app:FastifyInstance,db:Database,config:Config) {
    try{done(null,parseXunhuForm(String(body)));}
    catch(err){done(err instanceof Error?err:new Error('Bad form'),undefined);}
   });
+ app.removeContentTypeParser('application/json');
  app.addContentTypeParser('application/json',{parseAs:'string',bodyLimit:65536},(req,body,done)=>{
   if(req.url.split('?')[0]==='/api/payments/creem/webhook'){done(null,String(body));return;}
   try{done(null,JSON.parse(String(body)));}catch{done(new Error('Invalid JSON'),undefined);}
