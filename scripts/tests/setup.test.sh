@@ -16,7 +16,7 @@ make_fixture() {
 # A normal new install should require only an API domain; all cryptographic
 # tokens and bundled MySQL passwords are generated without printing them.
 make_fixture "$TEMP_DIR/bundled"
-printf '\nhttps://api.example.test\n\n\n\n\nn\nn\ny\n' | \
+printf '\nhttps://api.example.test\n\n\n\n\nn\n1\nn\ny\n' | \
   bash "$TEMP_DIR/bundled/scripts/setup.sh" --configure-only > "$TEMP_DIR/bundled.log" 2>&1 \
   || { cat "$TEMP_DIR/bundled.log"; fail 'Bundled MySQL setup'; }
 BUNDLED_ENV="$TEMP_DIR/bundled/.env.commercial"
@@ -37,7 +37,7 @@ FIRST_DB_PASS="${CFG[MYSQL_PASSWORD]}"
 if grep -q "$FIRST_DB_PASS" "$TEMP_DIR/bundled.log"; then fail 'Secret leaked to setup log'; fi
 
 # Reconfigure must keep all credentials, not clear/recreate a MySQL data volume.
-printf '\n\n\n\n\n\nn\nn\ny\n' | \
+printf '\n\n\n\n\n\nn\n1\nn\ny\n' | \
   bash "$TEMP_DIR/bundled/scripts/setup.sh" --configure-only > "$TEMP_DIR/rerun.log" 2>&1 \
   || { cat "$TEMP_DIR/rerun.log"; fail 'Rerun'; }
 CFG=()
@@ -62,6 +62,7 @@ pa's$word
 1
 n
 n
+1
 y
 merchant_123
 se'cret$very
