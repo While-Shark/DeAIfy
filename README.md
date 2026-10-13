@@ -35,7 +35,8 @@ DeAIfy is a single, lightweight Vue 3 photo studio. In the default build, images
 
 - **AI visual screening:** one browser-side ONNX classifier, 0–100 model score with a product threshold at 60. Outputs are **not** calibrated probabilities or provenance proof.
 - **Four independent image-quality indicators:** exposure, saturation balance, texture variation, and edge intensity, plus a heuristic composite index. These are about image characteristics—not whether an image is AI-generated.
-- **Five one-click editing presets:** Natural, Portrait, Film, Documentary and Soft Light. Tune seven image parameters manually if preferred.
+- **Five one-click editing presets:** Natural, Portrait, Film, Documentary and Soft Light, each with Low / Medium / High intensity. Medium preserves the original look; moving a fine-tuning slider switches to a remembered Custom mode.
+- **External project HTTP API (optional VPS mode):** create/revoke backend-only API keys in Account → API 密钥 and use the existing metered process/download endpoints. See [HTTP integration instructions](docs/external-http-api.md). MCP can be layered on top later.
 - **Manual recheck:** after editing, press 检测当前处理效果 to re-run visual screening and compare all four quality dimensions. Changing sliders does not trigger a model inference.
 - **Full-resolution export review:** the exact file that will be downloaded is scored and analyzed against the source; C2PA is checked separately. Confirm the export after reviewing results.
 - **Default mode:** browser-only; no image uploads or accounts. Uses OffscreenCanvas, Web Workers and a quantized ONNX model.

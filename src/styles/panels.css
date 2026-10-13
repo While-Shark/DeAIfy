@@ -80,6 +80,13 @@
 .preset-tile strong { font-size: 11px; margin-bottom: 6px; font-weight: 700; }
 .preset-tile span { font-size: 9px; color: #8da69a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .inactive-panel { opacity: .47; }
+.preset-level-controls { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:12px; font-size:11px; color:#aabdb1; }
+.preset-level-buttons { display:flex; border:1px solid #40554d; border-radius:7px; overflow:hidden; }
+.preset-level-buttons button { min-width:42px; padding:8px 12px; color:#a6baac; background:#1d2b29; border:0; cursor:pointer; }
+.preset-level-buttons button + button { border-left:1px solid #40554d; }
+.preset-level-buttons button.selected, .custom-mode-button.selected { color:#d5f5b3; background:#334e35; }
+.preset-level-buttons button:disabled, .custom-mode-button:disabled { cursor:not-allowed; }
+.custom-mode-button { margin-left:auto; padding:6px 12px; border-radius:7px; background:#24312d; border:1px solid #56715d; color:#b7cfb3; cursor:pointer; }
 .preset-review-action { margin-top: 14px; }
 .preset-score-button { min-height: 41px; font-size: 11px; font-weight: 730; border-color: #587c57; color: #c5eea5; background: #22352c; }
 .preset-score-button:hover:enabled { background: #314737; }

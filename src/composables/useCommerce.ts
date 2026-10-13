@@ -140,6 +140,15 @@ async function saveAdminPlan(plan:Record<string,unknown>,id?:string){
  });
 }
 async function getAdminOverview():Promise<AdminOverview>{return call('/api/admin/overview');}
+async function listApiKeys():Promise<{id:string;project:string;created_at:string;revoked_at:string|null}[]> {
+ return (await call('/api/account/api-keys')).keys;
+}
+async function createApiKey(project:string):Promise<{id:string;project:string;token:string}> {
+ return call('/api/account/api-keys',{method:'POST',body:JSON.stringify({project})});
+}
+async function revokeApiKey(id:string):Promise<void> {
+ await call('/api/account/api-keys/'+encodeURIComponent(id),{method:'DELETE'});
+}
 async function getAdminOrders(){return (await call('/api/admin/orders')).orders;}
 async function getAdminUsers(){return (await call('/api/admin/users')).users;}
 async function getAdminAudit(){return (await call('/api/admin/audit')).events;}
@@ -194,6 +203,7 @@ export function useCommerce() {
  return {
   enabled:!!apiBase,user,wallet,plans,paymentEnabled,registrationEnabled,recoveryEnabled,busy,error,
   authenticated:computed(()=>!!user.value),initialize,refresh,login,register,sendCode,requestRecovery,confirmRecovery,
-  logout,checkout,orders,ledger,jobs,downloadJob,getAdminPlans,saveAdminPlan,getAdminOverview,getAdminOrders,getAdminUsers,getAdminAudit,process,
+  logout,checkout,orders,ledger,jobs,downloadJob,listApiKeys,createApiKey,revokeApiKey,
+  getAdminPlans,saveAdminPlan,getAdminOverview,getAdminOrders,getAdminUsers,getAdminAudit,process,
  };
 }

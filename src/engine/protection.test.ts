@@ -1,18 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { assertNoPrivateViteEnv, isolateVendorChunk, shouldProtectChunk } from '../../build/protectionRules';
+import { join } from 'node:path';
 
 describe('production client protection policy', () => {
-  const root = '/repo/deaify';
+  const root = join(process.cwd());
+  const source = (path: string) => join(root, path);
 
   it('protects first-party chunks, but not vendor or mixed chunks', () => {
-    expect(shouldProtectChunk({ '/repo/deaify/src/App.vue': {} }, root)).toBe(true);
-    expect(shouldProtectChunk({ '/repo/deaify/src/engine/pixels.ts': {} }, root)).toBe(true);
-    expect(shouldProtectChunk({ '/repo/deaify/node_modules/vue/dist/vue.runtime.esm.js': {} }, root)).toBe(false);
+    expect(shouldProtectChunk({ [source('src/App.vue')]: {} }, root)).toBe(true);
+    expect(shouldProtectChunk({ [source('src/engine/pixels.ts')]: {} }, root)).toBe(true);
+    expect(shouldProtectChunk({ [source('node_modules/vue/dist/vue.runtime.esm.js')]: {} }, root)).toBe(false);
     expect(shouldProtectChunk({
-      '/repo/deaify/src/App.vue': {},
-      '/repo/deaify/node_modules/vue/dist/vue.runtime.esm.js': {},
+      [source('src/App.vue')]: {},
+      [source('node_modules/vue/dist/vue.runtime.esm.js')]: {},
     }, root)).toBe(false);
-    expect(shouldProtectChunk({ '/repo/deaify-other/src/App.vue': {} }, root)).toBe(false);
+    expect(shouldProtectChunk({ [root + '-other/src/App.vue']: {} }, root)).toBe(false);
   });
 
   it('isolates vendor code, including C2PA, from app chunks', () => {

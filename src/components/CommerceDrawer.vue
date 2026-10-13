@@ -4,11 +4,12 @@ import { X, ShieldCheck, Wallet, ShoppingBag } from 'lucide-vue-next';
 import { useCommerce } from '../composables/useCommerce';
 import TurnstileChallenge from './TurnstileChallenge.vue';
 import AdminPlans from './AdminPlans.vue';
+import ApiKeysPanel from './ApiKeysPanel.vue';
 
 const props=defineProps<{open:boolean}>();
 const emit=defineEmits<{close:[]}>();
 const billing=useCommerce();
-type Section='account'|'register'|'recover'|'plans'|'orders'|'admin';
+type Section='account'|'register'|'recover'|'plans'|'orders'|'api-keys'|'admin';
 const section=ref<Section>('account');
 const email=ref(''),password=ref(''),code=ref(''),turnstile=ref('');
 const formError=ref(''),message=ref('');
@@ -81,6 +82,7 @@ function afterPayment(){void action(async()=>{
           <button type="button" :class="{active:section==='account'}" @click="section='account'">账户</button>
           <button type="button" :class="{active:section==='plans'}" @click="section='plans'">充值</button>
           <button type="button" :class="{active:section==='orders'}" @click="viewOrders">订单</button>
+          <button type="button" :class="{active:section==='api-keys'}" @click="section='api-keys'">API 密钥</button>
           <button v-if="billing.user.value?.role==='admin'" type="button" :class="{active:section==='admin'}" @click="section='admin'">管理后台</button>
         </nav>
         <main class="commerce-content">
@@ -191,6 +193,7 @@ function afterPayment(){void action(async()=>{
             </div>
           </template>
 
+          <ApiKeysPanel v-else-if="section==='api-keys'"/>
           <AdminPlans v-else-if="section==='admin' && billing.user.value?.role==='admin'"/>
         </main>
         <footer class="commerce-footer"><ShoppingBag :size="14"/> 图片仅在明确导出时上传受保护的 VPS，临时结果约 30 分钟后删除。</footer>

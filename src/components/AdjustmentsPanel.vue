@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { Clapperboard, LoaderCircle, Mountain, ScanSearch, SlidersHorizontal, Sparkles, Sun, UserRound } from 'lucide-vue-next';
-import { PRESETS } from '../engine/presets';
-import type { PresetId, ProcessingParams } from '../types/editor';
+import { PRESETS, PRESET_LEVELS } from '../engine/presets';
+import type { EditingMode, PresetId, PresetLevel, ProcessingParams } from '../types/editor';
 
 const props = defineProps<{
   hasImage: boolean;
   presetId: PresetId;
+  presetLevel: PresetLevel;
+  editingMode: EditingMode;
   params: ProcessingParams;
   canScore: boolean;
   scoring: boolean;
@@ -13,6 +15,8 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{
   'select-preset': [id: PresetId];
+  'select-level': [level: PresetLevel];
+  'select-custom': [];
   'set-param': [key: keyof ProcessingParams, value: number];
   'score': [];
 }>();
@@ -35,18 +39,27 @@ function update(key: keyof ProcessingParams, event: Event): void {
 <template>
   <section class="panel-section adjustments-section" aria-labelledby="adjustments-title">
     <div class="section-heading"><span class="section-index">04</span><h2 id="adjustments-title">自然化工作台</h2></div>
-    <div class="section-subheading"><Sparkles :size="14" /> 内置 5 套自然化方案 · 点击即可应用</div>
+    <div class="section-subheading"><Sparkles :size="14" /> 5 套自然化方案 · 每套支持低、中、高三档强度</div>
     <div class="preset-grid" :class="{ 'inactive-panel': !hasImage }">
       <button
         v-for="preset in PRESETS" :key="preset.id" class="preset-tile"
-        :class="{ selected: presetId === preset.id }" type="button"
-        :aria-pressed="presetId === preset.id" :disabled="!hasImage"
+        :class="{ selected: editingMode === preset.id }" type="button"
+        :aria-pressed="editingMode === preset.id" :disabled="!hasImage"
         @click="emit('select-preset', preset.id)"
       >
         <component :is="icons[preset.id]" :size="20" :stroke-width="1.5" />
         <strong>{{ preset.title }}</strong>
         <span>{{ preset.subtitle }}</span>
       </button>
+    </div>
+    <div class="preset-level-controls" :class="{ 'inactive-panel': !hasImage }">
+      <span>预设强度</span>
+      <div class="preset-level-buttons" role="group" aria-label="预设强度">
+        <button v-for="level in PRESET_LEVELS" :key="level.id" type="button"
+          :class="{ selected: editingMode !== 'custom' && presetLevel === level.id }"
+          :aria-pressed="editingMode !== 'custom' && presetLevel === level.id" :disabled="!hasImage"
+          @click="emit('select-level', level.id)">{{ level.label }}</button>
+      </div>
     </div>
     <div class="preset-review-action">
       <button class="secondary-button preset-score-button" type="button"
@@ -58,7 +71,10 @@ function update(key: keyof ProcessingParams, event: Event): void {
       <p v-if="processedScore !== null" class="preset-score-hint">当前预览模型评分：<strong>{{ processedScore.toFixed(2) }} / 100</strong></p>
       <p v-else class="preset-score-hint">应用方案后手动评分；同步检测 AI 初筛和四维画质。</p>
     </div>
-    <div class="controls-heading"><SlidersHorizontal :size="15" /><span>精细调节</span><span class="controls-hint">MANUAL</span></div>
+    <div class="controls-heading"><SlidersHorizontal :size="15" /><span>精细调节</span>
+      <button type="button" class="custom-mode-button" :class="{ selected: editingMode === 'custom' }"
+        :disabled="!hasImage" :aria-pressed="editingMode === 'custom'" @click="emit('select-custom')">自定义</button>
+    </div>
     <div class="sliders-list" :class="{ 'inactive-panel': !hasImage }">
       <label v-for="control in controls" :key="control.key" class="slider-field">
         <span class="slider-label"><span>{{ control.label }}</span><output>{{ props.params[control.key] }}{{ control.key === 'strength' ? '%' : '' }}</output></span>

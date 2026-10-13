@@ -12,7 +12,6 @@ import AdjustmentsPanel from './components/AdjustmentsPanel.vue';
 import ExportPanel from './components/ExportPanel.vue';
 import ExportReviewDialog from './components/ExportReviewDialog.vue';
 import { useEditor } from './composables/useEditor';
-import type { ProcessingParams } from './types/editor';
 
 const commerce = useCommerce();
 const accountOpen = ref(false);
@@ -21,12 +20,12 @@ onMounted(() => {
   if(new URLSearchParams(window.location.search).has('payment')) accountOpen.value=true;
 });
 const {
-  file, filename, readableSize, originalUrl, previewUrl, dimensions, params, presetId,
+  file, filename, readableSize, originalUrl, previewUrl, dimensions, params, presetId, presetLevel, editingMode,
   comparePercent, score, processedScore, scanStatus, processedScanStatus, downloadProgress,
   scanPhase, provenance, uploadError, scanError, previewError, isPreviewing,
   sourceQuality, processedQuality, sourceQualityStatus, processedQualityStatus,
   sourceQualityError, processedQualityError,
-  canPreviewScore, exportFormat, selectFile, selectPreset, rerunAssessment, reviewBeforeExport, reset,
+  canPreviewScore, exportFormat, selectFile, selectPreset, selectLevel, selectCustom, updateParam, rerunAssessment, reviewBeforeExport, reset,
   reviewOpen, reviewStage, reviewReport, reviewError, retryExportReview, confirmExportReview, cancelReview,
 } = useEditor();
 
@@ -40,9 +39,6 @@ function handleExport():void {
     if(!window.confirm('确认'+charge+'？将临时上传图片到 VPS 进行完整分辨率处理。成功后扣费，结果保存约 30 分钟。'))return;
   }
   reviewBeforeExport();
-}
-function updateParam(key: keyof ProcessingParams, value: number): void {
-  params[key] = value;
 }
 </script>
 
@@ -73,10 +69,10 @@ function updateParam(key: keyof ProcessingParams, value: number): void {
         @update:compare="comparePercent = $event" />
       <aside class="right-rail">
         <div class="rail-heading">EDIT & EXPORT <span> / 02</span></div>
-        <AdjustmentsPanel :has-image="!!file" :preset-id="presetId" :params="params"
+        <AdjustmentsPanel :has-image="!!file" :preset-id="presetId" :preset-level="presetLevel" :editing-mode="editingMode" :params="params"
           :can-score="canPreviewScore" :scoring="processedScanStatus === 'loading' || processedQualityStatus === 'loading'"
           :processed-score="processedScore" @score="rerunAssessment"
-          @select-preset="selectPreset" @set-param="updateParam" />
+          @select-preset="selectPreset" @select-level="selectLevel" @select-custom="selectCustom" @set-param="updateParam" />
         <ExportPanel :has-image="!!file" :exporting="reviewOpen" :format="exportFormat"
           @export="handleExport" @update:format="exportFormat = $event" />
       </aside>
