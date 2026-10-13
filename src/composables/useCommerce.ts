@@ -30,6 +30,13 @@ export interface AdminPlan {
  credits:number;bonus_credits:number;discount_starts_at:string|null;
  discount_ends_at:string|null;active:number;sort_order:number;version:number;
 }
+export interface AdminUser {
+ id:string;email:string;role:'user'|'admin';is_disabled:number;
+ credits:number|string;created_at:string;
+}
+export interface CreditAdjustmentRequest {
+ delta:number;reason:string;idempotencyKey:string;
+}
 async function call(path:string,init:RequestInit={}):Promise<any> {
  if(!apiBase)throw new Error('商业化 API 尚未配置');
  const headers=new Headers(init.headers);
@@ -150,7 +157,13 @@ async function revokeApiKey(id:string):Promise<void> {
  await call('/api/account/api-keys/'+encodeURIComponent(id),{method:'DELETE'});
 }
 async function getAdminOrders(){return (await call('/api/admin/orders')).orders;}
-async function getAdminUsers(){return (await call('/api/admin/users')).users;}
+async function getAdminUsers():Promise<AdminUser[]>{return (await call('/api/admin/users')).users;}
+async function adjustUserCredits(id:string,request:CreditAdjustmentRequest):
+ Promise<{ok:boolean;credits:number;alreadyApplied:boolean}> {
+ return call('/api/admin/users/'+encodeURIComponent(id)+'/credits',{
+  method:'POST',body:JSON.stringify(request),
+ });
+}
 async function getAdminAudit(){return (await call('/api/admin/audit')).events;}
 /** The server reserves exactly one allowance/credit, creates a 30-minute encrypted result and returns it. */
 async function process(file:Blob,params:ProcessingParams,format:ExportFormat):Promise<Blob>{
@@ -204,6 +217,6 @@ export function useCommerce() {
   enabled:!!apiBase,user,wallet,plans,paymentEnabled,registrationEnabled,recoveryEnabled,busy,error,
   authenticated:computed(()=>!!user.value),initialize,refresh,login,register,sendCode,requestRecovery,confirmRecovery,
   logout,checkout,orders,ledger,jobs,downloadJob,listApiKeys,createApiKey,revokeApiKey,
-  getAdminPlans,saveAdminPlan,getAdminOverview,getAdminOrders,getAdminUsers,getAdminAudit,process,
+  getAdminPlans,saveAdminPlan,getAdminOverview,getAdminOrders,getAdminUsers,adjustUserCredits,getAdminAudit,process,
  };
 }

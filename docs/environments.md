@@ -68,6 +68,24 @@ try {
 }
 ~~~
 
+### 生成本地演示账号（可选）
+
+在后端构建、MySQL 初始化完成后，再执行：
+
+~~~powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\init-local-demo-users.ps1
+~~~
+
+仅在本地开发模式、指定本地 API 地址且显式确认时创建：
+
+- demo1@local.test
+- demo2@local.test
+- demo3@local.test
+
+三个演示账号首次创建时均充值 **99,999 积分**。密码随机生成，只保存在 Git 忽略的 .env.demo-users.local 文件中。脚本重复执行**不会重置用户密码、余额或重复发放积分**。这些演示账号不会随生产部署自动创建，切勿复制到公网数据库。
+
+管理员可在账户面板的「用户管理」标签选择目标用户，填写正向充值或扣减、数量与原因。所有操作都保留积分流水与管理员审计，失败重试会复用同一幂等键。
+
 ### 启动本地前端
 
 新开 PowerShell 窗口：

@@ -21,6 +21,15 @@ HTTP REST is the canonical integration for Node, Java, Python, and automation to
 
 Each account is limited to five active keys; key generation is rate-limited to four attempts per hour per caller. Keys share their owning account's credit balance and processing history. **The project name is an identification label, not a separate tenant boundary:** for now, use separate accounts if projects require fully isolated assets or billing.
 
+## Admin credit adjustments (login session only)
+
+Administrators can top up or deduct credits from a specific user in **账户 → 用户管理**. Each operation is transactional and recorded in both credit_ledger and audit_logs.
+
+- `GET /api/admin/users`: list users and current credit balances (admin only).
+- `POST /api/admin/users/{id}/credits`: send JSON `{"delta":99999,"reason":"manual top-up","idempotencyKey":"admin_operation_1234567890123456"}` using an **admin login session bearer token**. Negative delta deducts credits. The allowed absolute amount is 1–1,000,000, and the final balance cannot be negative or exceed 1,000,000,000.
+- Reuse the **same idempotencyKey** for retries. The response includes `credits` and `alreadyApplied`. Changing target or amount while reusing a key returns 409.
+- Do not use a project API Key to access administrator operations. Demo accounts with 99,999 starting credits are **local-only** and are never seeded in production.
+
 ## Image processing
 
 Send `POST /api/process` as `multipart/form-data`:

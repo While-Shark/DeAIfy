@@ -11,6 +11,7 @@ import { consumeRegistrationCode } from '../src/registration.js';
 import { adminOverview } from '../src/admin/overview.js';
 import { applyRecovery, prepareRecovery } from '../src/recovery.js';
 import { reserve, reverse, walletStatus } from '../src/wallet.js';
+import { adjustUserCredits, CreditAdjustmentError } from '../src/admin/credits.js';
 
 let db: Pool;
 const mysqlTest = process.env.TEST_MYSQL_HOST ? describe : describe.skip;
@@ -127,6 +128,31 @@ mysqlTest('real MySQL transaction and replay protection',()=>{
   expect(summary.completed24h).toBe(summary.free24h+summary.credits24h);
   expect(summary.paidOrderValueFen).toBeGreaterThanOrEqual(0);
   expect(summary.refundedOrders).toBeGreaterThanOrEqual(0);
+ });
+ it('keeps administrator credit grants idempotent and audits both grants and deductions',async()=>{
+  const actorId=await createUser(),targetId=await createUser();
+  const key='admin_' + randomUUID().replaceAll('-','');
+  const input={delta:99999,reason:'Integration grant',idempotencyKey:key};
+  const grant=await Promise.all([
+   adjustUserCredits(db,actorId,targetId,input),
+   adjustUserCredits(db,actorId,targetId,input),
+  ]);
+  expect(grant.some(g=>g.alreadyApplied)).toBe(true);
+  expect((await walletStatus(db,targetId)).credits).toBe(100001);
+  expect(await adjustUserCredits(db,actorId,targetId,{...input,idempotencyKey:key}))
+   .toMatchObject({alreadyApplied:true,credits:100001});
+  await expect(adjustUserCredits(db,actorId,targetId,{...input,delta:2}))
+   .rejects.toThrow('IDEMPOTENCY_KEY_CONFLICT');
+  await expect(adjustUserCredits(db,actorId,targetId,{...input,delta:-100002,idempotencyKey:'deduct_' + randomUUID().replaceAll('-','')}))
+   .rejects.toThrow(CreditAdjustmentError);
+  const debit=await adjustUserCredits(db,actorId,targetId,{
+   delta:-200,reason:'Integration debit',idempotencyKey:'deduct_' + randomUUID().replaceAll('-',''),
+  });
+  expect(debit.credits).toBe(99801);
+  const ledger=await rows(db,"SELECT delta FROM credit_ledger WHERE user_id=? AND kind='admin_adjustment'",[targetId]);
+  expect(ledger.map(entry=>Number(entry.delta)).sort((a,b)=>a-b)).toEqual([-200,99999]);
+  const audit=await rows(db,"SELECT id FROM audit_logs WHERE target_id=? AND action='wallet.admin_adjusted'",[targetId]);
+  expect(audit).toHaveLength(2);
  });
 
 });
