@@ -1,0 +1,7 @@
+# Additive Windows development override for docker-compose.commercial.yml.
+# Keeps local Compose volumes/networks separate from production.
+name: deaify-local
+services:
+  api:
+    environment:
+      NODE_ENV: development
