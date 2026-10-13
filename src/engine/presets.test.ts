@@ -1,9 +1,30 @@
 import { describe, expect, it } from 'vitest';
-import { cloneParams, getPreset, PRESETS } from './presets';
+import { cloneParams, getPreset, paramsForPreset, PRESETS, PRESET_LEVELS } from './presets';
 
 const supported = new Set(['natural', 'portrait', 'film', 'documentary', 'softlight']);
 
 describe('one-click naturalization presets', () => {
+  it('supports three distinct levels for all five presets; medium retains legacy values', () => {
+    expect(PRESET_LEVELS.map(level => level.id)).toEqual(['low', 'medium', 'high']);
+    for (const preset of PRESETS) {
+      const low = paramsForPreset(preset.id, 'low');
+      const medium = paramsForPreset(preset.id, 'medium');
+      const high = paramsForPreset(preset.id, 'high');
+      expect(medium).toEqual(preset.params);
+      expect(low.strength).toBeLessThan(medium.strength);
+      expect(high.strength).toBeGreaterThan(medium.strength);
+      expect(low.grain).toBeLessThanOrEqual(medium.grain);
+      expect(high.grain).toBeGreaterThanOrEqual(medium.grain);
+      for (const value of Object.values(high)) expect(Number.isFinite(value)).toBe(true);
+    }
+  });
+  it('never mutates base presets when switching strengths', () => {
+    const before = { ...getPreset('film').params };
+    const strong = paramsForPreset('film', 'high');
+    strong.grain = 0;
+    expect(getPreset('film').params).toEqual(before);
+    expect(paramsForPreset('film', 'medium')).toEqual(before);
+  });
   it('ships exactly five distinct presets with valid ids', () => {
     expect(PRESETS).toHaveLength(5);
     expect(new Set(PRESETS.map((preset) => preset.id))).toEqual(supported);

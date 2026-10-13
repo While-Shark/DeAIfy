@@ -6,7 +6,7 @@ import { imageMagic,MAX_UPLOAD_BYTES,validateFormat,validateParams,
  type ImageFormat,type ProcessingParams } from '../image/types.js';
 import { deleteResult,readResult,saveResult } from '../image/results.js';
 import { finalize,jobForDownload,reserve,reverse,walletStatus,validIdempotency } from '../wallet.js';
-import { requireIdentity } from './auth.js';
+import { requireProcessingOwner } from '../apiKeys.js';
 
 const MAX_BODY=MAX_UPLOAD_BYTES+8192;
 function safeFilename(input:string,format:ImageFormat) {
@@ -17,7 +17,7 @@ function safeFilename(input:string,format:ImageFormat) {
 export async function registerProcessing(app:FastifyInstance,db:Database,config:Config) {
  await app.register(multipart,{limits:{parts:4,files:1,fields:3,fileSize:MAX_UPLOAD_BYTES}});
  app.post('/api/process',{bodyLimit:MAX_BODY,config:{rateLimit:{max:5,timeWindow:'1 minute'}}},async(req,reply)=>{
-  const user=await requireIdentity(db,req,reply);
+  const user=await requireProcessingOwner(db,req,reply);
   if(!user)return;
   const key=req.headers['idempotency-key'];
   if(!validIdempotency(key))return reply.code(400).send({error:'IDEMPOTENCY_KEY_REQUIRED'});
@@ -109,7 +109,7 @@ export async function registerProcessing(app:FastifyInstance,db:Database,config:
   }
  });
  app.get('/api/jobs/:id/download',async(req,reply)=>{
-  const user=await requireIdentity(db,req,reply);
+  const user=await requireProcessingOwner(db,req,reply);
   if(!user)return;
   const id=(req.params as {id:string}).id;
   if(!/^[a-f\d-]{36}$/i.test(id))return reply.code(400).send({error:'INVALID_JOB'});

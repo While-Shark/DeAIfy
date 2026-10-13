@@ -11,22 +11,24 @@ import ImageWorkspace from './components/ImageWorkspace.vue';
 import AdjustmentsPanel from './components/AdjustmentsPanel.vue';
 import ExportPanel from './components/ExportPanel.vue';
 import ExportReviewDialog from './components/ExportReviewDialog.vue';
+import ApiDocsPage from './components/docs/ApiDocsPage.vue';
 import { useEditor } from './composables/useEditor';
-import type { ProcessingParams } from './types/editor';
+import { useAppNavigation } from './composables/useAppNavigation';
 
 const commerce = useCommerce();
+const { view, navigate } = useAppNavigation();
 const accountOpen = ref(false);
 onMounted(() => {
   void commerce.initialize();
   if(new URLSearchParams(window.location.search).has('payment')) accountOpen.value=true;
 });
 const {
-  file, filename, readableSize, originalUrl, previewUrl, dimensions, params, presetId,
+  file, filename, readableSize, originalUrl, previewUrl, dimensions, params, presetId, presetLevel, editingMode,
   comparePercent, score, processedScore, scanStatus, processedScanStatus, downloadProgress,
   scanPhase, provenance, uploadError, scanError, previewError, isPreviewing,
   sourceQuality, processedQuality, sourceQualityStatus, processedQualityStatus,
   sourceQualityError, processedQualityError,
-  canPreviewScore, exportFormat, selectFile, selectPreset, rerunAssessment, reviewBeforeExport, reset,
+  canPreviewScore, exportFormat, selectFile, selectPreset, selectLevel, selectCustom, updateParam, rerunAssessment, reviewBeforeExport, reset,
   reviewOpen, reviewStage, reviewReport, reviewError, retryExportReview, confirmExportReview, cancelReview,
 } = useEditor();
 
@@ -41,19 +43,21 @@ function handleExport():void {
   }
   reviewBeforeExport();
 }
-function updateParam(key: keyof ProcessingParams, value: number): void {
-  params[key] = value;
+function openAccountFromDocs(): void {
+  navigate('studio');
+  accountOpen.value = true;
 }
 </script>
 
 <template>
   <div class="app-shell">
-    <AppHeader :has-image="!!file" :commercial="commerce.enabled" @account="accountOpen=true" @reset="reset" />
-    <div class="hero-strip">
+    <AppHeader :has-image="!!file" :commercial="commerce.enabled" :view="view"
+      @navigate="navigate" @account="accountOpen=true" @reset="reset" />
+    <div v-if="view === 'studio'" class="hero-strip">
       <span class="eyebrow"><span class="eyebrow-line"></span> THE IMAGE NATURALIZATION STUDIO</span>
       <span class="hero-strip-copy">MAKE AI IMAGES FEEL MORE NATURAL <ArrowDownRight :size="15" /></span>
     </div>
-    <main class="workbench">
+    <main v-if="view === 'studio'" class="workbench">
       <aside class="left-rail">
         <div class="rail-heading">YOUR IMAGE <span> / 01</span></div>
         <UploadPanel :has-image="!!file" :filename="filename" :readable-size="readableSize"
@@ -73,14 +77,15 @@ function updateParam(key: keyof ProcessingParams, value: number): void {
         @update:compare="comparePercent = $event" />
       <aside class="right-rail">
         <div class="rail-heading">EDIT & EXPORT <span> / 02</span></div>
-        <AdjustmentsPanel :has-image="!!file" :preset-id="presetId" :params="params"
+        <AdjustmentsPanel :has-image="!!file" :preset-id="presetId" :preset-level="presetLevel" :editing-mode="editingMode" :params="params"
           :can-score="canPreviewScore" :scoring="processedScanStatus === 'loading' || processedQualityStatus === 'loading'"
           :processed-score="processedScore" @score="rerunAssessment"
-          @select-preset="selectPreset" @set-param="updateParam" />
+          @select-preset="selectPreset" @select-level="selectLevel" @select-custom="selectCustom" @set-param="updateParam" />
         <ExportPanel :has-image="!!file" :exporting="reviewOpen" :format="exportFormat"
           @export="handleExport" @update:format="exportFormat = $event" />
       </aside>
     </main>
+    <ApiDocsPage v-else :commercial="commerce.enabled" @open-account="openAccountFromDocs" />
     <CommerceDrawer v-if="commerce.enabled" :open="accountOpen" @close="accountOpen=false" />
     <Teleport to="body">
       <ExportReviewDialog v-if="reviewOpen" :commercial="commerce.enabled" :stage="reviewStage" :report="reviewReport"

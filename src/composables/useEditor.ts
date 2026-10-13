@@ -1,7 +1,7 @@
 import { computed, onScopeDispose, reactive, ref, shallowRef, watch } from 'vue';
-import { cloneParams, getPreset } from '../engine/presets';
+import { cloneParams, paramsForPreset } from '../engine/presets';
 import { inspectProvenance } from '../services/provenance';
-import type { ExportFormat, NaturalnessMetrics, PresetId, ProcessingParams, ProvenanceResult, ScanStatus } from '../types/editor';
+import type { ExportFormat, EditingMode, NaturalnessMetrics, PresetId, PresetLevel, ProcessingParams, ProvenanceResult, ScanStatus } from '../types/editor';
 import { useCommerce } from './useCommerce';
 import { useClassifier } from './useClassifier';
 import { useExportReview } from './useExportReview';
@@ -30,7 +30,10 @@ export function useEditor() {
   const previewBlob = shallowRef<Blob | null>(null);
   const dimensions = reactive({ width: 0, height: 0 });
   const presetId = ref<PresetId>('natural');
-  const params = reactive<ProcessingParams>(cloneParams(getPreset('natural').params));
+  const presetLevel = ref<PresetLevel>('medium');
+  const editingMode = ref<EditingMode>('natural');
+  const params = reactive<ProcessingParams>(paramsForPreset('natural', 'medium'));
+  let customParams: ProcessingParams | null = null;
   const comparePercent = ref(50);
 
   const score = ref<number | null>(null);
@@ -237,9 +240,22 @@ export function useEditor() {
   }, { deep: true });
   watch(exportFormat, () => { if (reviewOpen.value) cancelReview(); });
 
-  function selectPreset(id: PresetId): void {
+  function selectPreset(id: PresetId, level: PresetLevel = presetLevel.value): void {
     presetId.value = id;
-    Object.assign(params, cloneParams(getPreset(id).params));
+    presetLevel.value = level;
+    editingMode.value = id;
+    Object.assign(params, paramsForPreset(id, level));
+  }
+  function selectLevel(level: PresetLevel): void { selectPreset(presetId.value, level); }
+  function updateParam(key: keyof ProcessingParams, value: number): void {
+    params[key] = value;
+    editingMode.value = 'custom';
+    customParams = cloneParams(params);
+  }
+  function selectCustom(): void {
+    if (customParams) Object.assign(params, cloneParams(customParams));
+    else customParams = cloneParams(params);
+    editingMode.value = 'custom';
   }
 
   function reviewBeforeExport(): void {
@@ -284,12 +300,12 @@ export function useEditor() {
   });
 
   return {
-    file, filename, readableSize, originalUrl, previewUrl, dimensions, params, presetId,
+    file, filename, readableSize, originalUrl, previewUrl, dimensions, params, presetId, presetLevel, editingMode,
     comparePercent, score, processedScore, scanStatus, processedScanStatus, downloadProgress,
     scanPhase, provenance, uploadError, scanError, previewError, isPreviewing,
     sourceQuality, processedQuality, sourceQualityStatus, processedQualityStatus,
     sourceQualityError, processedQualityError,
-    canPreviewScore, exportFormat, selectFile, selectPreset, rerunAssessment, reviewBeforeExport, reset,
+    canPreviewScore, exportFormat, selectFile, selectPreset, selectLevel, selectCustom, updateParam, rerunAssessment, reviewBeforeExport, reset,
     reviewOpen, reviewStage, reviewReport, reviewError, retryExportReview,
     confirmExportReview, cancelReview,
   };

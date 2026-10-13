@@ -6,6 +6,7 @@ import { execute, rows, tx } from '../db.js';
 import { normalizeInt, pricing } from '../pricing.js';
 import { requireIdentity } from './auth.js';
 import { adminOverview } from '../admin/overview.js';
+import { adjustUserCredits, CreditAdjustmentError, parseCreditAdjustment } from '../admin/credits.js';
 
 type PlanInput = {
  title:string;base_price_fen:number;discount_bps:number;credits:number;bonus_credits:number;
@@ -96,6 +97,18 @@ export function registerAdmin(app:FastifyInstance,db:Database,_config:Config) {
   if(!await isAdmin(db,req,reply))return;
   return {users:await rows(db,
    'SELECT u.id,u.email,u.role,u.is_disabled,w.credits,u.created_at FROM users u JOIN wallets w ON w.user_id=u.id ORDER BY u.created_at DESC LIMIT 100')};
+ });
+ app.post('/api/admin/users/:id/credits',{config:{rateLimit:{max:30,timeWindow:'1 hour'}}},async(req,reply)=>{
+  const actor=await isAdmin(db,req,reply);
+  if(!actor)return;
+  try {
+   const change=parseCreditAdjustment(req.body);
+   const result=await adjustUserCredits(db,actor.id,(req.params as {id:string}).id,change);
+   return {ok:true,...result};
+  } catch(error) {
+   if(error instanceof CreditAdjustmentError)return reply.code(error.status).send({error:error.message});
+   throw error;
+  }
  });
  app.get('/api/admin/audit',async(req,reply)=>{
   if(!await isAdmin(db,req,reply))return;

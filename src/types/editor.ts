@@ -9,6 +9,8 @@ export interface ProcessingParams {
 }
 
 export type PresetId = 'natural' | 'portrait' | 'film' | 'documentary' | 'softlight';
+export type PresetLevel = 'low' | 'medium' | 'high';
+export type EditingMode = PresetId | 'custom';
 export type ExportFormat = 'image/png' | 'image/jpeg' | 'image/webp';
 
 export interface Preset {

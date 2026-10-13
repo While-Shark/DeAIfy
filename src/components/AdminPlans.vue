@@ -4,7 +4,6 @@ import { useCommerce, type AdminPlan, type AdminOverview } from '../composables/
 
 const api=useCommerce();
 const items=ref<AdminPlan[]>([]);
-const users=ref<any[]>([]);
 const orders=ref<any[]>([]);
 const audit=ref<any[]>([]);
 const overview=ref<AdminOverview|null>(null);
@@ -16,8 +15,8 @@ const form=ref(blank());
 async function load() {
  error.value='';
  try{
-  const [plans,u,o,summary,events]=await Promise.all([api.getAdminPlans(),api.getAdminUsers(),api.getAdminOrders(),api.getAdminOverview(),api.getAdminAudit()]);
-  items.value=plans;users.value=u;orders.value=o;overview.value=summary;audit.value=events;
+  const [plans,o,summary,events]=await Promise.all([api.getAdminPlans(),api.getAdminOrders(),api.getAdminOverview(),api.getAdminAudit()]);
+  items.value=plans;orders.value=o;overview.value=summary;audit.value=events;
  }catch(e){error.value=e instanceof Error?e.message:'后台数据加载失败';}
 }
 function edit(item:AdminPlan) {
@@ -44,7 +43,7 @@ onMounted(()=>void load());
 </script>
 <template>
   <section class="admin-plans">
-    <h3>套餐、折扣和用户管理</h3>
+    <h3>套餐与折扣管理</h3>
     <div v-if="overview" class="admin-metrics" aria-label="运营概况">
       <div><span>累计用户</span><strong>{{ overview.users }}</strong></div>
       <div><span>待支付订单</span><strong>{{ overview.pendingOrders }}</strong></div>
@@ -79,7 +78,7 @@ onMounted(()=>void load());
       <button type="button" :disabled="saving" class="commerce-primary" @click="save">{{ saving?'保存中…':'保存套餐' }}</button>
       <button type="button" class="commerce-link" @click="form=blank()">新增套餐</button>
     </div>
-    <div class="admin-summary"><span>用户：{{ users.length }}（最多展示 100）</span><span>订单：{{ orders.length }}（最多展示 100）</span></div>
+    <div class="admin-summary"><span>订单：{{ orders.length }}（最多展示 100）</span></div>
     <div v-for="o in orders.slice(0,8)" :key="o.id" class="commerce-history">
       <strong>{{ o.email }} · {{ o.state }}</strong>
       <span>¥{{ (o.price_fen/100).toFixed(2) }}</span>

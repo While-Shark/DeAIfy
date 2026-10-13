@@ -1,4 +1,13 @@
-import type { Preset, PresetId, ProcessingParams } from '../types/editor';
+import type { Preset, PresetId, PresetLevel, ProcessingParams } from '../types/editor';
+
+export const PRESET_LEVELS: readonly { id: PresetLevel; label: string }[] = [
+  { id: 'low', label: '低' }, { id: 'medium', label: '中' }, { id: 'high', label: '高' },
+];
+const FACTORS: Record<PresetLevel, number> = { low: 0.55, medium: 1, high: 1.3 };
+const LIMITS: Record<keyof ProcessingParams, [number, number]> = {
+  strength: [0, 100], grain: [0, 80], warmth: [-40, 40], saturation: [-40, 40],
+  contrast: [-40, 40], softness: [0, 50], texture: [0, 60],
+};
 
 export const PRESETS: readonly Preset[] = [
   {
@@ -25,6 +34,17 @@ export const PRESETS: readonly Preset[] = [
 
 export function getPreset(id: PresetId): Preset {
   return PRESETS.find((preset) => preset.id === id) ?? PRESETS[0]!;
+}
+
+/** Medium retains existing settings; other levels scale the entire effect. */
+export function paramsForPreset(id: PresetId, level: PresetLevel): ProcessingParams {
+  const base = getPreset(id).params;
+  const result = {} as ProcessingParams;
+  for (const key of Object.keys(LIMITS) as (keyof ProcessingParams)[]) {
+    const [min, max] = LIMITS[key];
+    result[key] = Math.max(min, Math.min(max, Math.round(base[key] * FACTORS[level])));
+  }
+  return result;
 }
 
 export function cloneParams(source: ProcessingParams): ProcessingParams {

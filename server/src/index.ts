@@ -8,6 +8,7 @@ import { registerRecovery } from './routes/recovery.js';
 import { registerAdmin } from './routes/admin.js';
 import { registerBilling } from './routes/billing.js';
 import { registerProcessing } from './routes/processing.js';
+import { registerApiKeys } from './routes/apiKeys.js';
 import { staleReservations } from './wallet.js';
 import { sweepResults } from './image/results.js';
 
@@ -18,7 +19,7 @@ const app=Fastify({
  logger:{redact:['req.headers.authorization','req.headers.cookie','req.body.password','req.body.code','req.body.hash']},
  bodyLimit:1024*1024,requestTimeout:60_000,trustProxy:config.trustedProxies,
 });
-await app.register(cors,{origin:config.frontendOrigin,methods:['GET','POST','PUT','OPTIONS'],
+await app.register(cors,{origin:config.frontendOrigin,methods:['GET','POST','PUT','DELETE','OPTIONS'],
  allowedHeaders:['Authorization','Content-Type','Idempotency-Key'],credentials:false});
 await app.register(rateLimit,{max:100,timeWindow:'1 minute'});
 app.addHook('onSend',async(_req,reply,payload)=>{
@@ -31,6 +32,7 @@ registerAuth(app,db,config);
 registerRecovery(app,db,config);
 registerBilling(app,db,config);
 registerAdmin(app,db,config);
+registerApiKeys(app,db);
 await registerProcessing(app,db,config);
 
 const clean=async()=>{
