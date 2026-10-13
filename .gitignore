@@ -4,6 +4,8 @@ dist/
 !.env.example
 .DS_Store
 coverage/
+test-results/
+playwright-report/
 *.log
 .idea/
 .vscode/

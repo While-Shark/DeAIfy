@@ -11,9 +11,12 @@ import ImageWorkspace from './components/ImageWorkspace.vue';
 import AdjustmentsPanel from './components/AdjustmentsPanel.vue';
 import ExportPanel from './components/ExportPanel.vue';
 import ExportReviewDialog from './components/ExportReviewDialog.vue';
+import ApiDocsPage from './components/docs/ApiDocsPage.vue';
 import { useEditor } from './composables/useEditor';
+import { useAppNavigation } from './composables/useAppNavigation';
 
 const commerce = useCommerce();
+const { view, navigate } = useAppNavigation();
 const accountOpen = ref(false);
 onMounted(() => {
   void commerce.initialize();
@@ -40,16 +43,21 @@ function handleExport():void {
   }
   reviewBeforeExport();
 }
+function openAccountFromDocs(): void {
+  navigate('studio');
+  accountOpen.value = true;
+}
 </script>
 
 <template>
   <div class="app-shell">
-    <AppHeader :has-image="!!file" :commercial="commerce.enabled" @account="accountOpen=true" @reset="reset" />
-    <div class="hero-strip">
+    <AppHeader :has-image="!!file" :commercial="commerce.enabled" :view="view"
+      @navigate="navigate" @account="accountOpen=true" @reset="reset" />
+    <div v-if="view === 'studio'" class="hero-strip">
       <span class="eyebrow"><span class="eyebrow-line"></span> THE IMAGE NATURALIZATION STUDIO</span>
       <span class="hero-strip-copy">MAKE AI IMAGES FEEL MORE NATURAL <ArrowDownRight :size="15" /></span>
     </div>
-    <main class="workbench">
+    <main v-if="view === 'studio'" class="workbench">
       <aside class="left-rail">
         <div class="rail-heading">YOUR IMAGE <span> / 01</span></div>
         <UploadPanel :has-image="!!file" :filename="filename" :readable-size="readableSize"
@@ -77,6 +85,7 @@ function handleExport():void {
           @export="handleExport" @update:format="exportFormat = $event" />
       </aside>
     </main>
+    <ApiDocsPage v-else :commercial="commerce.enabled" @open-account="openAccountFromDocs" />
     <CommerceDrawer v-if="commerce.enabled" :open="accountOpen" @close="accountOpen=false" />
     <Teleport to="body">
       <ExportReviewDialog v-if="reviewOpen" :commercial="commerce.enabled" :stage="reviewStage" :report="reviewReport"

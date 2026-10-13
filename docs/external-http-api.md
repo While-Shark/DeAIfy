@@ -1,5 +1,7 @@
 # DeAIfy HTTP API v1 (self-hosted VPS)
 
+Website documentation: click **Docs** in the site header, or open `/docs` directly to view the Chinese guide and copy live preset examples.
+
 HTTP REST is the canonical integration for Node, Java, Python, and automation tools. An MCP server, if added later, should call these same endpoints rather than duplicate image processing.
 
 ## Security & deployment

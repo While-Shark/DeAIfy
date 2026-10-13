@@ -6,6 +6,13 @@ DeAIfy is a single, lightweight Vue 3 photo studio. In the default build, images
 
 ## What it does
 
+### Developer Docs
+
+- A **Docs** menu in the website header opens the shareable `/docs` integration guide (also available on local-only sites for reference).
+- The Chinese guide covers API key creation, server-only credentials, multipart upload and authenticated download, error codes, credits, privacy and idempotency retries.
+- A live preset selector generates all seven required API parameters for five styles and three intensity levels, with copyable cURL, Node.js and Python samples.
+- The HTTP API requires a separately configured commercial VPS backend; Vercel's static site does not host API endpoints.
+
 ### v0.6.3 frontend bundle hardening
 
 - Production JavaScript now applies **selective obfuscation and encoded string tables to DeAIfy-owned application chunks**, keeping Vue, Hugging Face/ONNX inference, C2PA and WASM out of costly or fragile transformations. Small first-party image and photo-quality Web Workers receive the same moderate protection, but the large classifier Worker is untouched. Development builds stay readable.
